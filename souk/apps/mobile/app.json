@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Souk",
+    "slug": "souk",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "souk",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "backgroundColor": "#fbf7f0",
+      "resizeMode": "contain"
+    },
+    "android": {
+      "package": "fr.souk.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#fbf7f0"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "fr.souk.app",
+      "supportsTablet": true
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "apiUrl": "http://10.0.2.2:3100"
+    }
+  }
+}

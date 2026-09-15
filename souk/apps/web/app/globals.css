@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/*
+ * Palette: the shelves of a Lebanese grocer — olive, sumac, sesame, cream.
+ * Warm and edible rather than the blue-grey default of most storefronts.
+ */
+@theme {
+  --color-cream: #fbf7f0;
+  --color-parchment: #f3ece0;
+  --color-ink: #2a2520;
+  --color-muted: #8a8175;
+  --color-olive: #5c6b3c;
+  --color-olive-dark: #46522e;
+  --color-sumac: #b5533c;
+  --color-sesame: #d9c9a8;
+  --color-line: #e5dccd;
+
+  --font-display: Georgia, "Times New Roman", serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+html { background: var(--color-cream); }
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Allergen emphasis: INCO art. 21 requires allergens in the ingredient list
+   to be distinguished from the surrounding text. The seed data marks them
+   with **double asterisks**, rendered here as bold + underline so the
+   distinction survives both colour-blindness and a black-and-white print. */
+.ingredients strong {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/*
+ * Status palette — fixed, never themed, never reused as a series colour.
+ * On a light surface `warning` and `serious` fall below 3:1 by design, so
+ * every use pairs the colour with an icon and a text label: the colour is
+ * never the only carrier of meaning.
+ */
+@theme {
+  --color-good: #0ca30c;
+  --color-warning: #fab219;
+  --color-serious: #ec835a;
+  --color-critical: #d03b3b;
+}

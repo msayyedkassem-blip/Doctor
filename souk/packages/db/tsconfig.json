@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "types": ["node"],
+    "noEmit": true,
+    // Node's --experimental-strip-types resolves the literal path, so the
+    // seed imports './catalogue.ts'. Safe here: this package never emits.
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src/**/*.ts", "prisma/**/*.ts", "scripts/**/*.ts"]
+}

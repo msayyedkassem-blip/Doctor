@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.next/
+.expo/
+.turbo/
+*.tsbuildinfo
+.env
+.env.local
+.env*.local
+coverage/
+
+# The repository root .gitignore carries a blanket `lib/` rule (a Python
+# build-artifact convention from DentalPin). In this project `lib/` is
+# application source — Next.js convention — so it is re-included here.
+# The directory itself must be un-excluded before files inside it can be:
+# git cannot re-include a file whose parent directory is excluded.
+!lib/
+!**/lib/

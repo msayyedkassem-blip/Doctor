@@ -1,0 +1,513 @@
+// Souk — Lebanese grocery e-commerce, France.
+//
+// Conventions:
+//   * Every monetary value is an Int of euro CENTS. Never Float, never Decimal.
+//   * Weights are Int grams.
+//   * Enums mirror packages/core exactly. If one changes, change both.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/* ---------------------------------------------------------------- */
+/* Enums — kept in lockstep with @souk/core                          */
+/* ---------------------------------------------------------------- */
+
+/// The closed Annex II list of Regulation (EU) 1169/2011. Do not extend.
+enum Allergen {
+  GLUTEN
+  CRUSTACEANS
+  EGGS
+  FISH
+  PEANUTS
+  SOYBEANS
+  MILK
+  NUTS
+  CELERY
+  MUSTARD
+  SESAME
+  SULPHITES
+  LUPIN
+  MOLLUSCS
+}
+
+enum VatCategory {
+  FOOD_REDUCED  // 5,5 % — groceries for deferred consumption
+  CONFECTIONERY // 20 %  — confiserie, chocolate confectionery, margarine
+  NON_FOOD      // 20 %
+}
+
+enum VatMode {
+  FRANCHISE // art. 293 B CGI — no VAT charged, none reclaimed
+  STANDARD
+}
+
+enum VatSwitchStrategy {
+  ABSORB
+  PASS_THROUGH
+}
+
+enum NetQuantityUnit {
+  G
+  KG
+  ML
+  L
+  PIECE
+}
+
+enum DurabilityKind {
+  DDM // à consommer de préférence avant — quality date
+  DLC // à consommer jusqu'au — safety date
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAYMENT_FAILED
+  PAID
+  PREPARING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum ShippingMethod {
+  MONDIAL_RELAY_POINT
+  COLISSIMO_HOME
+}
+
+/* ---------------------------------------------------------------- */
+/* Shop configuration                                                */
+/* ---------------------------------------------------------------- */
+
+/// Singleton row (id = 1). Holds the legal identity of the business and the
+/// VAT regime, both of which apply shop-wide rather than per product.
+model ShopSettings {
+  id Int @id @default(1)
+
+  // Food business operator — the importer named on every label (art. 8.1 INCO).
+  legalName    String
+  addressLine1 String
+  addressLine2 String?
+  postalCode   String
+  city         String
+  country      String  @default("France")
+  siret        String?
+  /// Intra-EU VAT number. Required for imports even under the franchise.
+  vatNumber    String?
+  /// Citeo unique identifier — mandatory, and must be displayed on the site.
+  citeoIdu     String?
+
+  contactEmail String
+  contactPhone String?
+
+  // --- VAT regime -------------------------------------------------
+  vatMode           VatMode           @default(FRANCHISE)
+  vatSwitchStrategy VatSwitchStrategy @default(ABSORB)
+  /// Turnover booked in the current calendar year, in cents. Drives the
+  /// 85 000 € / 93 500 € threshold monitor.
+  currentYearRevenueCents  Int @default(0)
+  previousYearRevenueCents Int @default(0)
+  /// Set when the majoré threshold is crossed; VAT then applies from the
+  /// 1st of that month, retroactively.
+  franchiseEndedOn DateTime?
+
+  updatedAt DateTime @updatedAt
+}
+
+/* ---------------------------------------------------------------- */
+/* Catalogue                                                         */
+/* ---------------------------------------------------------------- */
+
+model Category {
+  id       String  @id @default(uuid())
+  slug     String  @unique
+  nameFr   String
+  nameEn   String  @default("")
+  nameAr   String  @default("")
+  position Int     @default(0)
+  imageUrl String?
+
+  products Product[]
+
+  @@index([position])
+}
+
+model Product {
+  id   String @id @default(uuid())
+  slug String @unique
+
+  // --- Naming ------------------------------------------------------
+  /// Marketing name. NOT a substitute for legalName.
+  displayNameFr String
+  displayNameEn String @default("")
+  displayNameAr String @default("")
+
+  /// Art. 17 — the legal name of the food. This is what an inspector reads:
+  /// "Mélange d'épices à base de thym, sumac et graines de sésame",
+  /// not "Za'atar".
+  legalName String
+
+  brand           String?
+  /// Art. 26 — country of origin.
+  countryOfOrigin String
+
+  descriptionFr String @default("") @db.Text
+
+  // --- INCO mandatory particulars ----------------------------------
+  /// Art. 9.1.b — descending by weight, in French, allergens emphasised.
+  ingredientsFr String @db.Text
+  /// Art. 9.1.c — drawn from the closed Annex II list.
+  allergens     Allergen[]
+  /// Voluntary cross-contamination warning (art. 36). Accurate once given.
+  mayContain    Allergen[]
+  /// Art. 9.1.d — QUID, e.g. "Sésame 100%".
+  quidFr        String?
+
+  netQuantityValue   Float
+  netQuantityUnit    NetQuantityUnit
+  /// Drained weight for goods packed in liquid (olives, vine leaves).
+  netQuantityDrained Float?
+
+  // Art. 30 — nutrition declaration per 100 g / 100 ml. All mandatory.
+  energyKj     Float
+  energyKcal   Float
+  fat          Float
+  saturates    Float
+  carbohydrate Float
+  sugars       Float
+  protein      Float
+  salt         Float
+  fibre        Float?
+
+  durabilityKind      DurabilityKind @default(DDM)
+  /// Art. 9.1.g
+  storageConditionsFr String         @db.Text
+  /// Art. 9.1.j
+  usageInstructionsFr String?        @db.Text
+
+  // --- Commerce ----------------------------------------------------
+  /// All taxes included — what the customer pays. French B2C law requires
+  /// the advertised price to be the all-inclusive one.
+  priceCents          Int
+  /// Strike-through reference price, for promotions.
+  compareAtPriceCents Int?
+  vatCategory         VatCategory @default(FOOD_REDUCED)
+  /// Gross weight of one saleable unit including its packaging.
+  shippingWeightGrams Int
+
+  images String[]
+
+  /// Publication gate. Only set true once the product passes
+  /// checkDistanceSellingCompliance() — art. 14 requires every mandatory
+  /// particular except the durability date to be shown BEFORE purchase.
+  isActive Boolean @default(false)
+  /// Surfaced on the home page.
+  isFeatured Boolean @default(false)
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  batches    StockBatch[]
+  orderLines OrderLine[]
+  cartItems  CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, isFeatured])
+  @@index([categoryId])
+}
+
+model Supplier {
+  id      String  @id @default(uuid())
+  name    String
+  country String  @default("Liban")
+  email   String?
+  phone   String?
+  notes   String? @db.Text
+
+  products Product[]
+  batches  StockBatch[]
+
+  createdAt DateTime @default(now())
+}
+
+/// A physical lot of one product.
+///
+/// Lot number and durability date live here, not on Product: art. 14 exempts
+/// the date from the pre-purchase duty, but Reg. 178/2002 traceability means
+/// the lot shipped to each customer must be recoverable for a recall.
+model StockBatch {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /// As printed by the producer. Required for recall traceability.
+  lotNumber      String
+  durabilityDate DateTime
+  quantityOnHand Int
+  receivedAt     DateTime @default(now())
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  // --- Landed cost, per unit, in cents -----------------------------
+  // Import VAT is included deliberately: under the franchise there is no
+  // right of deduction, so it stays in the cost base permanently. Leaving
+  // it out is the commonest way to overstate margin in this regime.
+  supplierCostCents Int @default(0)
+  freightShareCents Int @default(0)
+  customsDutyCents  Int @default(0)
+  /// NOT deductible under the franchise.
+  importVatCents    Int @default(0)
+  /// Citeo eco-contribution, customs broker, and the like.
+  otherCostsCents   Int @default(0)
+
+  /// EUR.1 or invoice declaration reference. Without proof of origin the
+  /// EU–Lebanon preference does not apply and full duty is owed.
+  originProofRef String?
+
+  allocations OrderLineBatch[]
+
+  @@index([productId, durabilityDate])
+  @@index([lotNumber])
+}
+
+/* ---------------------------------------------------------------- */
+/* Customers                                                         */
+/* ---------------------------------------------------------------- */
+
+model Customer {
+  id    String @id @default(uuid())
+  email String @unique
+
+  firstName String?
+  lastName  String?
+  phone     String?
+
+  /// Null for accounts that only ever use magic-link sign-in.
+  passwordHash String?
+
+  /// Opt-in, never assumed. RGPD: consent must be freely given and revocable.
+  marketingConsent   Boolean   @default(false)
+  marketingConsentAt DateTime?
+
+  preferredLocale String @default("fr")
+
+  addresses Address[]
+  orders    Order[]
+  carts     Cart[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Address {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  label      String?
+  firstName  String
+  lastName   String
+  line1      String
+  line2      String?
+  postalCode String
+  city       String
+  country    String  @default("France")
+  phone      String?
+
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
+}
+
+/* ---------------------------------------------------------------- */
+/* Cart                                                              */
+/* ---------------------------------------------------------------- */
+
+/// Server-side cart, so a basket survives switching from the website to the
+/// app, and so abandoned baskets can be recovered.
+model Cart {
+  id String @id @default(uuid())
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  /// Anonymous visitors, keyed by an opaque cookie/device token.
+  sessionToken String? @unique
+
+  items CartItem[]
+
+  couponCode String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+}
+
+model CartItem {
+  id     String @id @default(uuid())
+  cartId String
+  cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  quantity Int
+
+  @@unique([cartId, productId])
+}
+
+/* ---------------------------------------------------------------- */
+/* Orders                                                            */
+/* ---------------------------------------------------------------- */
+
+model Order {
+  id     String @id @default(uuid())
+  /// Human-facing sequential reference, e.g. "SK-2026-000123".
+  number String @unique
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  /// Captured even for guest checkout.
+  email      String
+
+  status OrderStatus @default(PENDING_PAYMENT)
+
+  // --- Amounts, all in cents ---------------------------------------
+  subtotalCents Int
+  discountCents Int @default(0)
+  shippingCents Int @default(0)
+  totalCents    Int
+
+  /// The regime in force AT THE TIME OF SALE. Snapshotted, never derived
+  /// from ShopSettings later — crossing the threshold must not retroactively
+  /// rewrite the tax treatment of orders already invoiced.
+  vatMode      VatMode
+  totalVatCents Int @default(0)
+  /// [{ rateBasisPoints, netCents, vatCents }]. Empty under the franchise.
+  vatBreakdown Json @default("[]")
+  /// "TVA non applicable, article 293 B du CGI" while in franchise.
+  invoiceMention String?
+
+  // --- Delivery -----------------------------------------------------
+  shippingMethod ShippingMethod
+
+  shipFirstName  String
+  shipLastName   String
+  shipLine1      String
+  shipLine2      String?
+  shipPostalCode String
+  shipCity       String
+  shipCountry    String  @default("France")
+  shipPhone      String?
+
+  /// Mondial Relay point identifier and snapshot, when collected in store.
+  relayPointId      String?
+  relayPointName    String?
+  relayPointAddress String?
+
+  trackingNumber String?
+  carrierLabelUrl String?
+
+  stripePaymentIntentId String? @unique
+
+  couponCode String?
+
+  lines OrderLine[]
+
+  placedAt    DateTime  @default(now())
+  paidAt      DateTime?
+  preparedAt  DateTime?
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
+  refundedAt  DateTime?
+
+  customerNote String? @db.Text
+  internalNote String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, placedAt])
+  @@index([email])
+  @@index([customerId])
+}
+
+model OrderLine {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  /// Kept nullable so deleting a product never destroys order history.
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  // Snapshot of the product as sold. An invoice must not change when the
+  // catalogue does.
+  slug                String
+  nameFr              String
+  unitPriceCents      Int
+  vatCategory         VatCategory
+  shippingWeightGrams Int
+
+  quantity       Int
+  lineTotalCents Int
+
+  /// Which physical lots fulfilled this line. Populated at dispatch.
+  batches OrderLineBatch[]
+
+  @@index([orderId])
+}
+
+/// Links an order line to the stock batches that fulfilled it.
+/// This is the table a recall is answered from.
+model OrderLineBatch {
+  id          String     @id @default(uuid())
+  orderLineId String
+  orderLine   OrderLine  @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+
+  batchId String
+  batch   StockBatch @relation(fields: [batchId], references: [id], onDelete: Restrict)
+
+  /// Denormalised so traceability survives even if the batch row is purged.
+  lotNumber String
+  quantity  Int
+
+  @@index([batchId])
+  @@index([lotNumber])
+}
+
+/* ---------------------------------------------------------------- */
+/* Promotions                                                        */
+/* ---------------------------------------------------------------- */
+
+model Coupon {
+  id   String @id @default(uuid())
+  code String @unique
+
+  /// Exactly one of these is set.
+  percentOff    Int?
+  amountOffCents Int?
+
+  minSubtotalCents Int     @default(0)
+  maxRedemptions   Int?
+  timesRedeemed    Int     @default(0)
+  expiresAt        DateTime?
+  isActive         Boolean @default(true)
+
+  createdAt DateTime @default(now())
+}
