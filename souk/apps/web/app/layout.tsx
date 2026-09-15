@@ -1,8 +1,13 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import { Header } from '~/components/Header';
-import { Footer } from '~/components/Footer';
 
+/**
+ * Root layout: document shell only.
+ *
+ * The storefront chrome lives in (shop)/layout.tsx so that the admin — and
+ * its login page — do not inherit a customer-facing header and footer.
+ * Route groups do not affect URLs.
+ */
 export const metadata: Metadata = {
   title: {
     default: 'Souk — épicerie libanaise livrée en France',
@@ -10,7 +15,6 @@ export const metadata: Metadata = {
   },
   description:
     "Produits d'épicerie libanaise importés du Liban et livrés partout en France : tahini, zaatar, huile d'olive, café, douceurs.",
-  // Installable from the browser: nobody is forced to download an app.
   manifest: '/manifest.webmanifest',
 };
 
@@ -23,17 +27,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <body className="flex min-h-screen flex-col">
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-olive focus:px-4 focus:py-2 focus:text-cream"
-        >
-          Aller au contenu
-        </a>
-        <Header />
-        <main id="main" className="flex-1">{children}</main>
-        <Footer />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

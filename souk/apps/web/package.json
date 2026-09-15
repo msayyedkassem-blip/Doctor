@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start --port 3100",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "hash-password": "node scripts/hash-password.mjs"
   },
   "dependencies": {
     "@souk/core": "workspace:*",
@@ -15,7 +16,8 @@
     "next": "^15.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",

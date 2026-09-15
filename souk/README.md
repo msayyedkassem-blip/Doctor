@@ -59,7 +59,8 @@ custom model in `packages/core` is smaller than the integration would be.
 | `packages/core` — money, VAT, allergens, INCO, shipping, cart, orders | **Done**, 38 tests passing |
 | `packages/db` — Prisma schema + seed | **Done**, verified against PostgreSQL 16 |
 | `apps/web` — storefront (home, catalogue, product, cart) | **Done**, builds and renders |
-| `apps/web` — checkout + admin | Next |
+| `apps/web` — admin (dashboard, produits, stock, paramètres) | **Done**, verified end-to-end in a browser |
+| `apps/web` — checkout | Next |
 | `apps/mobile` — Expo Android app | Not started |
 | Stripe payments, carrier APIs, transactional email | Not started |
 
@@ -78,8 +79,11 @@ pnpm --filter @souk/db deploy    # apply migrations
 pnpm --filter @souk/db seed      # categories + starter catalogue
 pnpm --filter @souk/db smoke     # end-to-end pricing/compliance check
 
-# Storefront on http://localhost:3100
+# Storefront on http://localhost:3100, admin at /admin
 pnpm --filter @souk/web dev
+
+# Generate admin credentials for .env
+pnpm --filter @souk/web hash-password 'votre mot de passe'
 ```
 
 ---

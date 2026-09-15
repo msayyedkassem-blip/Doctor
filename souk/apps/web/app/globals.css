@@ -37,3 +37,16 @@ body {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/*
+ * Status palette — fixed, never themed, never reused as a series colour.
+ * On a light surface `warning` and `serious` fall below 3:1 by design, so
+ * every use pairs the colour with an icon and a text label: the colour is
+ * never the only carrier of meaning.
+ */
+@theme {
+  --color-good: #0ca30c;
+  --color-warning: #fab219;
+  --color-serious: #ec835a;
+  --color-critical: #d03b3b;
+}
