@@ -1,0 +1,16 @@
+{
+  "projectId": "ed42138a-6d8a-4c2d-84b7-2e35da1b04a4",
+  "cli": { "version": ">= 5.0.0" },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "channel": "preview"
+    },
+    "production": {
+      "android": { "buildType": "app-bundle" },
+      "channel": "production"
+    }
+  },
+  "submit": { "production": {} }
+}
