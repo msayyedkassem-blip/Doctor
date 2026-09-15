@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "souk",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "backgroundColor": "#fbf7f0",
       "resizeMode": "contain"
@@ -14,13 +14,17 @@
     "android": {
       "package": "fr.souk.app",
       "versionCode": 1,
-      "adaptiveIcon": { "backgroundColor": "#fbf7f0" }
+      "adaptiveIcon": {
+        "backgroundColor": "#fbf7f0"
+      }
     },
     "ios": {
       "bundleIdentifier": "fr.souk.app",
       "supportsTablet": true
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router"
+    ],
     "extra": {
       "apiUrl": "http://10.0.2.2:3100"
     }

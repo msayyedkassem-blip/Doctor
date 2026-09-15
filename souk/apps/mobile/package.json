@@ -5,11 +5,12 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
+    "android": "expo run:android",
     "web": "expo start --web",
     "prebuild": "expo prebuild --platform android --clean",
     "snapshot": "node scripts/make-snapshot.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@expo/metro-runtime": "^4.0.1",
