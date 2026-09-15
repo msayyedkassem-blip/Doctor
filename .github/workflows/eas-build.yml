@@ -70,13 +70,3 @@ jobs:
           echo "3. Find the build under Builds → Android"
           echo "4. Click Download to get the APK"
 
-      - name: Create build summary
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '✅ APK build completed successfully!\n\nProfile: `${{ github.event.inputs.profile }}`\n\nThe build can be downloaded from your Expo dashboard: https://expo.dev/'
-            });
