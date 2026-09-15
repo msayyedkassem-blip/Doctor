@@ -31,8 +31,9 @@ pnpm --filter @souk/mobile snapshot http://localhost:3100
 
 ## Building an APK
 
-Use EAS. It runs the Android toolchain in the cloud, needs no local SDK, and
-handles signing:
+**Quick start:** See [BUILD_INSTRUCTIONS.md](./BUILD_INSTRUCTIONS.md) for a step-by-step guide using GitHub Actions (recommended for mobile users).
+
+If you're building locally with the CLI:
 
 ```bash
 npx eas login                 # your Expo account, free tier
