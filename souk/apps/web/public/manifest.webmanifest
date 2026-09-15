@@ -1,0 +1,11 @@
+{
+  "name": "Souk — épicerie libanaise",
+  "short_name": "Souk",
+  "description": "Épicerie libanaise livrée partout en France.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbf7f0",
+  "theme_color": "#fbf7f0",
+  "lang": "fr",
+  "icons": []
+}

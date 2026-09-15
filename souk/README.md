@@ -57,10 +57,14 @@ custom model in `packages/core` is smaller than the integration would be.
 | Area | State |
 |---|---|
 | `packages/core` — money, VAT, allergens, INCO, shipping, cart, orders | **Done**, 38 tests passing |
-| `packages/db` — Prisma schema + seed | Next |
-| `apps/web` — storefront, checkout, admin | Not started |
+| `packages/db` — Prisma schema + seed | **Done**, verified against PostgreSQL 16 |
+| `apps/web` — storefront (home, catalogue, product, cart) | **Done**, builds and renders |
+| `apps/web` — checkout + admin | Next |
 | `apps/mobile` — Expo Android app | Not started |
 | Stripe payments, carrier APIs, transactional email | Not started |
+
+The storefront prerenders every product and category page as static HTML, so
+the catalogue is crawlable without executing JavaScript.
 
 ## Commands
 
@@ -68,6 +72,14 @@ custom model in `packages/core` is smaller than the integration would be.
 pnpm install
 pnpm --filter @souk/core typecheck
 pnpm --filter @souk/core build && node --test "packages/core/dist/**/*.test.js"
+
+# Database (needs DATABASE_URL — see packages/db/.env.example)
+pnpm --filter @souk/db deploy    # apply migrations
+pnpm --filter @souk/db seed      # categories + starter catalogue
+pnpm --filter @souk/db smoke     # end-to-end pricing/compliance check
+
+# Storefront on http://localhost:3100
+pnpm --filter @souk/web dev
 ```
 
 ---
