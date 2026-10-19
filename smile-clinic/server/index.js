@@ -33,6 +33,7 @@ import registerNetwork from './routes/network.js';
 import registerSync from './routes/sync.js';
 import registerLicence from './routes/licence.js';
 import registerAttachments from './routes/attachments.js';
+import registerStock from './routes/stock.js';
 
 // Which copy of the app this is. Worth answering plainly: replacing the files
 // and still seeing the old screens almost always means a different copy is the
@@ -45,7 +46,7 @@ for (const register of [
   registerAuth, registerUsers, registerSettings, registerPatients, registerAppointments,
   registerProcedures, registerClinical, registerInvoices, registerPayments,
   registerExpenses, registerReports, registerMessages, registerNetwork, registerSync,
-  registerLicence, registerAttachments,
+  registerLicence, registerAttachments, registerStock,
 ]) register(router);
 
 /** Endpoints that must answer even when the clinic is read-only. */

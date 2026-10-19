@@ -130,6 +130,51 @@ tx(() => {
   const dentistIds = [userIds[0], userIds[1], userIds[2]];
   const frontDesk = userIds[3];
 
+// ---- the store cupboard ----------------------------------------------------
+// A real dental cupboard, with a few things deliberately low so the screen
+// opens on something worth seeing.
+  const STOCK = [
+    ['Latex gloves, medium', 'Consumables', 'box', 14, 6, 850, 'DentalDepot'],
+    ['Nitrile gloves, large', 'Consumables', 'box', 3, 6, 1100, 'DentalDepot'],
+    ['Face masks', 'Consumables', 'box', 9, 4, 600, 'DentalDepot'],
+    ['Saliva ejectors', 'Consumables', 'pack', 2, 5, 420, 'DentalDepot'],
+    ['Cotton rolls', 'Consumables', 'pack', 18, 5, 300, 'DentalDepot'],
+    ['Composite A2', 'Restorative', 'syringe', 6, 3, 2400, 'Ivoclar'],
+    ['Composite A3', 'Restorative', 'syringe', 1, 3, 2400, 'Ivoclar'],
+    ['Bonding agent', 'Restorative', 'bottle', 2, 2, 5600, 'Ivoclar'],
+    ['Glass ionomer', 'Restorative', 'pack', 4, 2, 3900, 'GC'],
+    ['Articaine 4% with adrenaline', 'Anaesthetic', 'box', 5, 3, 4200, 'Septodont'],
+    ['Lidocaine 2%', 'Anaesthetic', 'box', 7, 3, 3100, 'Septodont'],
+    ['Dental needles 27G', 'Anaesthetic', 'box', 2, 4, 1800, 'Septodont'],
+    ['Endodontic files, assorted', 'Endodontics', 'pack', 8, 3, 5200, 'Dentsply'],
+    ['Gutta-percha points', 'Endodontics', 'box', 3, 2, 2800, 'Dentsply'],
+    ['Sodium hypochlorite 2.5%', 'Endodontics', 'bottle', 4, 2, 900, 'Local supplier'],
+    ['Impression material', 'Prosthetics', 'pack', 5, 2, 7400, 'Zhermack'],
+    ['Alginate', 'Prosthetics', 'pack', 2, 2, 2100, 'Zhermack'],
+    ['Prophy paste', 'Hygiene', 'tube', 11, 4, 450, 'DentalDepot'],
+    ['Fluoride varnish', 'Hygiene', 'box', 3, 2, 3300, 'Colgate'],
+    ['Sterilisation pouches', 'Sterilisation', 'box', 6, 3, 1500, 'DentalDepot'],
+    ['Surface disinfectant', 'Sterilisation', 'bottle', 1, 3, 1200, 'Local supplier'],
+    ['X-ray sensor covers', 'Radiology', 'box', 7, 3, 1900, 'DentalDepot'],
+  ];
+
+  for (const [name, category, unit, quantity, min, cost, supplier] of STOCK) {
+    const stamp = now();
+    const id = insert('stock_items', {
+      name, category, unit, quantity, min_quantity: min,
+      unit_cost_cents: cost, supplier, active: 1,
+      created_at: stamp, updated_at: stamp,
+    });
+    // The opening count is a movement, so every number on the screen has a
+    // history behind it from the first day.
+    insert('stock_moves', {
+      item_id: id, change: quantity, reason: 'counted', note: 'Opening count',
+      created_by: userIds[0], created_at: stamp,
+    });
+  }
+
+
+
   const procedureIds = PROCEDURES.map(([code, name, category, price, duration, toothSpecific]) =>
     insert('procedures', {
       code, name, category,
@@ -404,6 +449,7 @@ const counts = {
   invoices: q.get('SELECT COUNT(*) AS n FROM invoices').n,
   payments: q.get('SELECT COUNT(*) AS n FROM payments').n,
   expenses: q.get('SELECT COUNT(*) AS n FROM expenses').n,
+  stock: q.get('SELECT COUNT(*) AS n FROM stock_items').n,
 };
 console.log('[seed] done:', counts);
 console.log('\nSign in with any of these (password: demo1234):');

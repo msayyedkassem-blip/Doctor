@@ -148,6 +148,14 @@ export const api = {
   // syncing between devices
   syncDevices: () => request('GET', '/api/sync/devices'),
 
+  stock: (query) => request('GET', `/api/stock${query ? `?${query}` : ''}`),
+  stockItem: (id) => request('GET', `/api/stock/${id}`),
+  shoppingList: () => request('GET', '/api/stock/shopping-list'),
+  addStockItem: (body) => request('POST', '/api/stock', body),
+  updateStockItem: (id, body) => request('PUT', `/api/stock/${id}`, body),
+  moveStock: (id, body) => request('POST', `/api/stock/${id}/move`, body),
+  retireStockItem: (id) => request('DELETE', `/api/stock/${id}`),
+
   attachments: (patientId) => request('GET', `/api/patients/${patientId}/attachments`),
   attachment: (id) => request('GET', `/api/attachments/${id}`),
   addAttachment: (patientId, body) =>

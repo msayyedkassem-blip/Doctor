@@ -90,7 +90,8 @@ export default function register(router) {
       // What the image actually weighs, not the base64 it travelled as.
       bytes: Math.floor((data.length * 3) / 4),
       data,
-      thumb: str(ctx.body, 'thumb', { max: 400_000 }).replace(/^data:[^,]*,/, '') || null,
+      thumb: String(str(ctx.body, 'thumb', { max: 400_000 }) || '')
+        .replace(/^data:[^,]*,/, '') || null,
       created_by: ctx.user.id,
       created_at: now,
       updated_at: now,

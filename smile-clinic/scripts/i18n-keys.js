@@ -81,6 +81,13 @@ const INDIRECT = [
   'That file is not an image', 'No image was sent', 'No such image',
   // Image kinds, picked by the row's own value.
   'X-ray', 'Photo',
+  // Stock units and the sentences its routes send back.
+  'piece', 'box', 'pack', 'bottle', 'tube', 'syringe', 'ml', 'g', 'pair',
+  'There is not that much to take', 'That would not change anything',
+  // Stock labels chosen from a map or a ternary at display time.
+  'Running out only', 'Include retired', 'Add an item', 'Item added', 'Item saved',
+  'Used', 'Wasted or broken', 'Expired', 'Counted on the shelf',
+  'That is not a reason for a change', 'No such item',
 ];
 
 const keys = new Set(INDIRECT);

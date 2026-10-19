@@ -15,6 +15,7 @@ import expenses from './views/expenses.js';
 import reports from './views/reports.js';
 import settings from './views/settings.js';
 import reminders from './views/whatsapp.js';
+import stock from './views/stock.js';
 
 const ROUTES = [
   { path: /^\/?$/, view: dashboard, nav: 'dashboard' },
@@ -24,6 +25,7 @@ const ROUTES = [
   { path: /^\/billing$/, view: billing, nav: 'billing' },
   { path: /^\/expenses$/, view: expenses, nav: 'expenses' },
   { path: /^\/reports$/, view: reports, nav: 'reports' },
+  { path: /^\/stock$/, view: stock, nav: 'stock' },
   { path: /^\/reminders$/, view: reminders, nav: 'reminders' },
   { path: /^\/settings$/, view: settings, nav: 'settings' },
 ];
@@ -35,6 +37,7 @@ const NAV = [
   { id: 'billing', label: t('Billing'), icon: '❐', href: '#/billing', permission: 'invoices:read' },
   { id: 'expenses', label: t('Expenses'), icon: '↗', href: '#/expenses', permission: 'expenses:read' },
   { id: 'reminders', label: t('Reminders'), icon: '✆', href: '#/reminders', permission: 'messages:write' },
+  { id: 'stock', label: t('Stock'), icon: '▤', href: '#/stock', permission: 'stock:read' },
   { id: 'reports', label: t('Reports'), icon: '◔', href: '#/reports', permission: 'reports:read' },
   { id: 'settings', label: t('Settings'), icon: '⚙', href: '#/settings' },
 ];

@@ -1193,3 +1193,113 @@ describe('x-rays and photos', () => {
     assert.equal(left.body.attachments[0].id, second.body.attachment.id);
   });
 });
+
+/**
+ * The store cupboard.
+ *
+ * The count is derived from movements, never written directly, so the tests
+ * are mostly about that: what a delivery, a use and a recount each do to it.
+ */
+describe('stock', () => {
+  let itemId;
+
+  before(async () => {
+    await login('admin@test.local', 'test12345', 'admin');
+  });
+
+  test('an item starts with the count it was given, as a movement', async () => {
+    const res = await post('/api/stock', {
+      name: 'Nitrile gloves, large', category: 'Consumables', unit: 'box',
+      quantity: 4, min_quantity: 6, unit_cost_cents: 1100, supplier: 'DentalDepot',
+    });
+    assert.equal(res.status, 201);
+    itemId = res.body.item.id;
+    assert.equal(res.body.item.quantity, 4);
+
+    const detail = await get(`/api/stock/${itemId}`);
+    assert.equal(detail.body.moves.length, 1);
+    assert.equal(detail.body.moves[0].reason, 'counted');
+    assert.equal(detail.body.moves[0].change, 4);
+  });
+
+  test('below the reorder level it is listed as running out', async () => {
+    const res = await get('/api/stock?low=1');
+    assert.ok(res.body.items.some((i) => i.id === itemId),
+      'four boxes against a minimum of six is running out');
+    assert.ok(res.body.summary.low >= 1);
+  });
+
+  test('a delivery adds, a use takes away', async () => {
+    const received = await post(`/api/stock/${itemId}/move`,
+      { reason: 'received', amount: 10, note: 'Delivery' });
+    assert.equal(received.status, 200);
+    assert.equal(received.body.item.quantity, 14);
+    assert.equal(received.body.item.low, 0, 'fourteen against six is no longer low');
+
+    // Use is always a subtraction, whichever sign it was sent with.
+    const used = await post(`/api/stock/${itemId}/move`, { reason: 'used', amount: 2 });
+    assert.equal(used.body.item.quantity, 12);
+    const alsoUsed = await post(`/api/stock/${itemId}/move`, { reason: 'used', amount: -3 });
+    assert.equal(alsoUsed.body.item.quantity, 9);
+  });
+
+  test('a recount records the difference, not the number', async () => {
+    const res = await post(`/api/stock/${itemId}/move`, { reason: 'counted', amount: 5 });
+    assert.equal(res.body.item.quantity, 5);
+    const detail = await get(`/api/stock/${itemId}`);
+    // Nine on the books, five on the shelf: the movement is the four missing.
+    assert.equal(detail.body.moves[0].change, -4);
+    assert.equal(detail.body.moves[0].reason, 'counted');
+  });
+
+  test('you cannot take out more than there is', async () => {
+    const res = await post(`/api/stock/${itemId}/move`, { reason: 'used', amount: 500 });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /not that much/);
+  });
+
+  test('a change of nothing is refused rather than logged', async () => {
+    const res = await post(`/api/stock/${itemId}/move`, { reason: 'used', amount: 0 });
+    assert.equal(res.status, 400);
+  });
+
+  test('quantities may be fractional', async () => {
+    const made = await post('/api/stock',
+      { name: 'Articaine', unit: 'ml', quantity: 2.5, min_quantity: 1 });
+    assert.equal(made.body.item.quantity, 2.5);
+    const used = await post(`/api/stock/${made.body.item.id}/move`,
+      { reason: 'used', amount: 0.7 });
+    assert.equal(used.body.item.quantity, 1.8);
+  });
+
+  test('the shopping list says how much to buy, grouped by supplier', async () => {
+    const res = await get('/api/stock/shopping-list');
+    assert.equal(res.status, 200);
+    const gloves = res.body.items.find((i) => i.id === itemId);
+    assert.ok(gloves, 'five boxes against a minimum of six is on the list');
+    // Enough to get back to the minimum, never less than one.
+    assert.equal(gloves.suggested, 1);
+  });
+
+  test('retiring keeps the history', async () => {
+    assert.equal((await del(`/api/stock/${itemId}`)).status, 200);
+    const listed = await get('/api/stock');
+    assert.ok(!listed.body.items.some((i) => i.id === itemId));
+    const all = await get('/api/stock?all=1');
+    assert.ok(all.body.items.some((i) => i.id === itemId), 'it is retired, not deleted');
+    const detail = await get(`/api/stock/${itemId}`);
+    assert.ok(detail.body.moves.length > 1, 'what was used is still recorded');
+  });
+
+  test('an accountant can look but not touch', async () => {
+    // Its own account rather than one an earlier suite may have changed.
+    await post('/api/users', {
+      name: 'Stock accountant', email: 'stock-books@test.local',
+      role: 'accountant', password: 'test12345',
+    });
+    await login('stock-books@test.local', 'test12345', 'accountant');
+    assert.equal((await get('/api/stock', { as: 'accountant' })).status, 200);
+    const res = await post('/api/stock', { name: 'Nope' }, { as: 'accountant' });
+    assert.equal(res.status, 403);
+  });
+});
