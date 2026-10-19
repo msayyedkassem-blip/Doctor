@@ -1,0 +1,31 @@
+{
+  "name": "smile-clinic",
+  "version": "2.3.0",
+  "description": "Free, self-hosted dental clinic management: patients, odontogram, appointments, invoicing, payments and expenses. Zero dependencies.",
+  "type": "module",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "main": "server/index.js",
+  "scripts": {
+    "prestart": "node --no-warnings scripts/build-local.js",
+    "start": "node --no-warnings server/index.js",
+    "dev": "node --no-warnings --watch server/index.js",
+    "seed": "node --no-warnings server/seed.js",
+    "reset": "node --no-warnings server/seed.js --reset",
+    "backup": "node --no-warnings scripts/backup.js",
+    "address": "node --no-warnings scripts/address.js",
+    "build:local": "node --no-warnings scripts/build-local.js",
+    "i18n:check": "node --no-warnings scripts/i18n-keys.js",
+    "licence:setup": "node --no-warnings scripts/licence.js setup",
+    "licence": "node --no-warnings scripts/licence.js mint",
+    "licence:check": "node --no-warnings scripts/licence.js check",
+    "find": "node --no-warnings scripts/find-installs.js",
+    "tidy": "node --no-warnings scripts/tidy-up.js",
+    "setup": "node --no-warnings scripts/tidy-up.js",
+    "test": "node --no-warnings --test tests/*.test.js"
+  },
+  "keywords": ["dental", "clinic", "dentist", "appointments", "billing", "emr", "practice-management"],
+  "private": true
+}

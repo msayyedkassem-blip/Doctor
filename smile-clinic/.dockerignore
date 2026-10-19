@@ -1,0 +1,7 @@
+data/
+backups/
+node_modules/
+tests/
+.git/
+*.md
+!README.md

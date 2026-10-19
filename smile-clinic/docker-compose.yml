@@ -1,0 +1,18 @@
+services:
+  clinic:
+    build: .
+    container_name: smile-clinic
+    restart: unless-stopped
+    ports:
+      # Bind to localhost only; put a reverse proxy in front to expose it.
+      - "127.0.0.1:4000:4000"
+    environment:
+      PORT: 4000
+      DATA_DIR: /data
+      # Set to 1 when a proxy terminates HTTPS in front of this container.
+      SECURE_COOKIES: "0"
+      # Only used the very first time, on an empty database.
+      # ADMIN_EMAIL: admin@yourclinic.example
+      # ADMIN_PASSWORD: change-me-immediately
+    volumes:
+      - ./data:/data
