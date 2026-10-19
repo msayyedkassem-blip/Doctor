@@ -58,6 +58,10 @@ const INDIRECT = [
   'Confirm', 'Complete',
   'Draft', 'Unpaid', 'Part paid', 'Paid', 'Void',
   'Planned', 'In progress',
+  // Device names, derived from the browser's user-agent at display time.
+  'iPhone', 'iPad', 'iPhone app', 'iPad app', 'Android phone', 'Android tablet',
+  'Android phone app', 'Android tablet app', 'Mac', 'Windows PC',
+  'Linux computer', 'Unknown device',
   // Plan names, held in a map keyed by what the licence says.
   'Monthly', 'Yearly', 'One-off purchase', 'Free trial',
   // Sentences the server sends back, translated by t(err.message) on arrival.

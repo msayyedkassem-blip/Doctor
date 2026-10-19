@@ -148,6 +148,9 @@ export const api = {
   // syncing between devices
   syncDevices: () => request('GET', '/api/sync/devices'),
 
+  myDevices: () => request('GET', '/api/auth/devices'),
+  signOutDevice: (id) => request('DELETE', `/api/auth/devices/${id}`),
+
   licence: () => request('GET', '/api/licence'),
   activateLicence: (key) => request('POST', '/api/licence', { key }),
   startPairing: () => request('POST', '/api/sync/pair', {}),

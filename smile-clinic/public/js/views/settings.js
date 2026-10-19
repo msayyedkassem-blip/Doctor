@@ -123,7 +123,7 @@ async function clinicTab() {
 
   // Kept outside the form so its buttons can never submit the settings.
   return el('div', {}, [
-    form, await licenceCard(), languageCard(),
+    form, await licenceCard(), languageCard(), await devicesCard(),
     await storageCard(), await syncCard(), await connectCard(),
   ]);
 }
@@ -221,6 +221,64 @@ async function licenceCard() {
 const PLAN_NAMES = {
   monthly: 'Monthly', yearly: 'Yearly', lifetime: 'One-off purchase', trial: 'Free trial',
 };
+
+/**
+ * Everywhere this sign-in is currently open.
+ *
+ * The same account is meant to be used on the phone, the tablet and the front
+ * desk at the same time. That only works if a lost phone can be cut off
+ * without making everyone else change their password, which is what the list
+ * is for.
+ */
+async function devicesCard() {
+  let devices = [];
+  try {
+    ({ devices } = await api.myDevices());
+  } catch {
+    return el('span');
+  }
+
+  // confirmDialog hands its callback no event, so the card keeps a reference
+  // to itself rather than trying to find one from a click that is long gone.
+  const card = el('div', { class: 'card mt' }, []);
+  const refresh = async () => card.replaceWith(await devicesCard());
+
+  card.append(
+    el('div', { class: 'card-head' }, [el('h2', { text: t('Where you are signed in') })]),
+    el('div', { class: 'card-body' }, [
+      el('p', { class: 'small muted', text: t('You can use this account on as many '
+        + 'phones, tablets and computers as you like at the same time. If one is lost '
+        + 'or no longer used, sign it out here \u2014 nobody else is affected.') }),
+      el('div', { class: 'card-body flush mt' }, table([
+        { title: t('Device'), render: (d) => el('div', {}, [
+          el('span', { class: 'strong' }, t(d.device)),
+          d.current ? el('span', { class: 'badge badge-success', text: t('this one') }) : null,
+        ]) },
+        { title: t('Signed in'), class: 'nowrap', render: (d) => fmtDate(d.created_at) },
+        { title: t('Last used'), class: 'nowrap', render: (d) => fmtDateTime(d.last_seen) },
+        { title: '', class: 'num', render: (d) => el('button', {
+          class: 'btn btn-sm btn-danger',
+          text: d.current ? t('Sign out') : t('Sign out that device'),
+          onClick: () => confirmDialog({
+            title: d.current ? t('Sign out of this device?')
+              : t('Sign out {device}?', { device: t(d.device) }),
+            message: t('That device will ask for the password again next time. '
+              + 'Records on it are not touched.'),
+            confirmLabel: t('Sign out'),
+            danger: true,
+            onConfirm: async () => {
+              await api.signOutDevice(d.id);
+              if (d.current) { window.location.reload(); return; }
+              toast(t('Device signed out'));
+              await refresh();
+            },
+          }),
+        }) },
+      ], devices, { empty: t('No other device is signed in.') })),
+    ]),
+  );
+  return card;
+}
 
 /**
  * Language is a personal choice, not a clinic setting: the receptionist may

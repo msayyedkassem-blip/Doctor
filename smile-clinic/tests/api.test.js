@@ -991,3 +991,93 @@ describe('licensing', () => {
     assert.match(third.body.error, /covers 2 devices/);
   });
 });
+
+/**
+ * One account, many devices.
+ *
+ * A clinic runs on a phone at the chair, a tablet at reception and a computer
+ * in the office, often signed in as the same person. Everything here is about
+ * that staying true without anyone having to think about it.
+ */
+describe('signing in on several devices', () => {
+  before(async () => {
+    await login('admin@test.local', 'test12345', 'admin');
+  });
+
+  test('signing in on a second device does not sign out the first', async () => {
+    await login('admin@test.local', 'test12345', 'phone');
+    await login('admin@test.local', 'test12345', 'tablet');
+
+    // All three jars are live at once; none of them was invalidated.
+    for (const as of ['admin', 'phone', 'tablet']) {
+      const res = await get('/api/auth/me', { as });
+      assert.equal(res.status, 200, `the ${as} session should still work`);
+      assert.equal(res.body.user.email, 'admin@test.local');
+    }
+  });
+
+  test('each device is listed, and the one asking is marked', async () => {
+    const res = await get('/api/auth/devices', { as: 'phone' });
+    assert.equal(res.status, 200);
+    assert.ok(res.body.devices.length >= 3, 'every signed-in device is listed');
+    assert.equal(res.body.devices.filter((d) => d.current).length, 1,
+      'exactly one row is the device doing the asking');
+  });
+
+  test('a device in daily use is never signed out from under it', async () => {
+    // Wind one session back so only a day of its window is left, as if the
+    // phone had been in use for a month.
+    const { q: db } = await import('../server/db.js');
+    const before = await get('/api/auth/devices', { as: 'tablet' });
+    const mine = before.body.devices.find((d) => d.current);
+    const nearly = new Date(Date.now() + 86400_000).toISOString();
+    db.run('UPDATE sessions SET expires_at = ? WHERE token_hash = ?', nearly, mine.id);
+
+    // Simply using the app has to push the window out again.
+    const used = await get('/api/patients?limit=1', { as: 'tablet' });
+    assert.equal(used.status, 200);
+
+    const after = await get('/api/auth/devices', { as: 'tablet' });
+    const renewed = after.body.devices.find((d) => d.current);
+    assert.ok(Date.parse(renewed.expires_at) > Date.parse(nearly) + 86400_000,
+      'using the app should move the expiry weeks out, not leave it a day away');
+  });
+
+  test('a lost device can be cut off without touching the others', async () => {
+    const list = await get('/api/auth/devices', { as: 'admin' });
+    const other = list.body.devices.find((d) => !d.current);
+    assert.ok(other, 'there is another device to sign out');
+
+    const removed = await del(`/api/auth/devices/${other.id}`, { as: 'admin' });
+    assert.equal(removed.status, 200);
+
+    // The device doing the signing-out carries on untouched.
+    assert.equal((await get('/api/auth/me', { as: 'admin' })).status, 200);
+    const left = await get('/api/auth/devices', { as: 'admin' });
+    assert.ok(!left.body.devices.some((d) => d.id === other.id),
+      'the signed-out device is gone from the list');
+  });
+
+  test('one account cannot sign another out', async () => {
+    await login('desk@test.local', 'test12345', 'receptionist');
+    const mine = await get('/api/auth/devices', { as: 'admin' });
+    const target = mine.body.devices[0].id;
+
+    const res = await del(`/api/auth/devices/${target}`, { as: 'receptionist' });
+    // Scoped by user_id, so it reports success having deleted nothing rather
+    // than revealing whether somebody else's session id exists.
+    assert.equal(res.status, 200);
+    assert.equal((await get('/api/auth/me', { as: 'admin' })).status, 200,
+      "another user's session must survive");
+  });
+
+  test('changing the password still signs the other devices out', async () => {
+    await login('admin@test.local', 'test12345', 'laptop');
+    const res = await post('/api/auth/password',
+      { current_password: 'test12345', new_password: 'test12345' }, { as: 'laptop' });
+    assert.equal(res.status, 200);
+    // The device that made the change keeps working; the rest do not.
+    assert.equal((await get('/api/auth/me', { as: 'laptop' })).status, 200);
+    assert.equal((await get('/api/auth/me', { as: 'phone' })).status, 401);
+  });
+});

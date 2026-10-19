@@ -658,4 +658,32 @@ export const AR = {
   'That is not a licence key.': 'هذا ليس رمز ترخيص.',
   'That code contains a character it should not.':
     'يحتوي هذا الرمز على حرف لا يجوز وجوده فيه.',
+
+  // ---- signed-in devices --------------------------------------------------
+  'Where you are signed in': 'أين أنت مسجَّل الدخول',
+  'You can use this account on as many phones, tablets and computers as you like at the same time. If one is lost or no longer used, sign it out here — nobody else is affected.':
+    'يمكنك استخدام هذا الحساب على ما شئت من هواتف وأجهزة لوحية وحواسيب في الوقت نفسه. وإذا ضاع أحدها أو لم يعد مستخدمًا، سجّل خروجه من هنا — ولن يتأثر أحد غيره.',
+  'Signed in': 'تاريخ الدخول',
+  'Last used': 'آخر استخدام',
+  'this one': 'هذا الجهاز',
+  'Sign out that device': 'تسجيل خروج هذا الجهاز',
+  'Sign out of this device?': 'تسجيل الخروج من هذا الجهاز؟',
+  'Sign out {device}?': 'تسجيل خروج {device}؟',
+  'That device will ask for the password again next time. Records on it are not touched.':
+    'سيطلب ذلك الجهاز كلمة المرور في المرة القادمة. ولن تُمسّ السجلات الموجودة عليه.',
+  'Device signed out': 'تم تسجيل خروج الجهاز',
+  'No other device is signed in.': 'لا يوجد جهاز آخر مسجَّل الدخول.',
+  // Device names, built from what the browser reports.
+  'iPhone': 'آيفون',
+  'iPad': 'آيباد',
+  'iPhone app': 'تطبيق آيفون',
+  'iPad app': 'تطبيق آيباد',
+  'Android phone': 'هاتف أندرويد',
+  'Android tablet': 'جهاز أندرويد لوحي',
+  'Android phone app': 'تطبيق أندرويد',
+  'Android tablet app': 'تطبيق أندرويد لوحي',
+  'Mac': 'ماك',
+  'Windows PC': 'حاسوب ويندوز',
+  'Linux computer': 'حاسوب لينكس',
+  'Unknown device': 'جهاز غير معروف',
 };

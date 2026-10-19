@@ -14,7 +14,7 @@ export const config = {
   dataDir: process.env.DATA_DIR || path.join(ROOT, 'data'),
   dbFile: process.env.DB_FILE || '',
   // Sessions live this long; every authenticated request slides the window.
-  sessionDays: Number(process.env.SESSION_DAYS || 7),
+  sessionDays: Number(process.env.SESSION_DAYS || 30),
   // Set to '1' behind an HTTPS reverse proxy so the cookie gets the Secure flag.
   secureCookies: process.env.SECURE_COOKIES === '1',
 };

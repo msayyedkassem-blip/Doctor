@@ -11,7 +11,7 @@ import { installNodeCrypto } from './lib/crypto-node.js';
 import { Router, json, readBody, parseCookies } from './lib/http.js';
 import { serveStatic } from './lib/static.js';
 import { HttpError } from './lib/errors.js';
-import { userFromToken, purgeExpiredSessions, COOKIE_NAME } from './lib/auth.js';
+import { userFromToken, purgeExpiredSessions, COOKIE_NAME, sessionCookie } from './lib/auth.js';
 import { hashPassword } from './lib/auth.js';
 import { insert } from './db.js';
 import { setLicencePublicKey } from './lib/licence.js';
@@ -67,6 +67,12 @@ export async function handle(req, res) {
   const cookies = parseCookies(req);
   const token = cookies[COOKIE_NAME] || null;
   const user = token ? await userFromToken(token) : null;
+
+  // The session slides forward while a device is in use; the cookie has to
+  // slide with it or the browser throws away a session the server still holds.
+  if (user?.renewedUntil) {
+    res.setHeader('Set-Cookie', sessionCookie(token, user.renewedUntil));
+  }
 
   // Most of the API is same-origin on purpose. The three endpoints devices use
   // to pair and exchange records are the exception: a phone running its own
