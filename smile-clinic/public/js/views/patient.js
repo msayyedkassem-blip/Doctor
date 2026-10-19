@@ -1,4 +1,5 @@
 import { t } from '../i18n.js';
+import { toothDrawing } from './tooth.js';
 import { api } from '../api.js';
 import {
   el, clear, money, fmtDate, fmtTime, age, table, emptyState, can,
@@ -204,7 +205,7 @@ function chartTab(data, ctx) {
           })
           : null,
       }, [
-        el('div', { class: 'tooth-shape', text: entry?.surfaces || (condition === 'missing' ? '×' : '') }),
+        toothDrawing(number, condition, { surfaces: entry?.surfaces || '' }),
         el('div', { class: 'tooth-num', text: String(number) }),
       ]);
     }));
@@ -226,11 +227,8 @@ function chartTab(data, ctx) {
         el('div', { class: 'legend mt center', style: { justifyContent: 'center' } },
           TOOTH_CONDITIONS.filter((c) => c.value !== 'healthy').map((c) =>
             el('span', { class: 'legend-item' }, [
-              el('span', {
-                class: 'legend-swatch tooth-shape',
-                dataset: { condition: c.value },
-                style: { width: '11px', height: '11px', borderRadius: '3px', display: 'block' },
-              }),
+              el('span', { class: 'legend-tooth', dataset: { condition: c.value } },
+                [toothDrawing(16, c.value)]),
               el('span', {}, c.label),
             ]))),
       ]),

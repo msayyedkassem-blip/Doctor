@@ -430,43 +430,84 @@ tbody tr.clickable:hover { background: var(--surface-2); }
 .legend-swatch { width: 10px; height: 10px; border-radius: 3px; }
 
 /* ---------- Odontogram ---------------------------------------------- */
-.odontogram { display: flex; flex-direction: column; gap: 16px; align-items: center; }
-.arch { display: flex; gap: 16px; }
-.quadrant { display: flex; gap: 3px; }
+.odontogram { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.arch { display: flex; gap: 18px; }
+.quadrant { display: flex; gap: 2px; }
 .quadrant.flip { flex-direction: row-reverse; }
 .tooth {
   width: 34px; cursor: pointer; text-align: center;
   border: 0; background: none; padding: 0; font-family: inherit;
 }
-.tooth-shape {
-  width: 32px; height: 40px; border-radius: 7px 7px 5px 5px;
-  border: 1.5px solid var(--border-strong);
-  background: var(--surface-2);
-  display: grid; place-items: center;
-  font-size: 13px; color: var(--text-muted);
+.tooth-num { font-size: 10px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+
+/* ---------- a tooth ---------------------------------------------------
+   Parts are coloured here rather than in the drawing code, so a condition
+   decides what it recolours: enamel, dentine, or the nerve inside. */
+.tooth-svg { width: 32px; height: 51px; display: block; overflow: visible; }
+/* The outline carries the shape and the border; the crown sits on top of it
+   with no stroke, so a restoration colours the crown and leaves the root. */
+.tooth-outline {
+  fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.4;
+  stroke-linejoin: round;
 }
-.tooth:hover .tooth-shape { border-color: var(--accent); transform: translateY(-2px); }
-.tooth-num { font-size: 10px; color: var(--text-faint); margin-top: 3px; font-variant-numeric: tabular-nums; }
-.tooth[data-condition="caries"] .tooth-shape,
-.tooth-shape[data-condition="caries"] { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
-.tooth[data-condition="filled"] .tooth-shape,
-.tooth-shape[data-condition="filled"] { background: var(--info-soft); border-color: var(--info); color: var(--info); }
-.tooth[data-condition="crown"] .tooth-shape,
-.tooth[data-condition="veneer"] .tooth-shape,
-.tooth[data-condition="bridge"] .tooth-shape,
-.tooth-shape[data-condition="crown"],
-.tooth-shape[data-condition="veneer"],
-.tooth-shape[data-condition="bridge"] { background: var(--warning-soft); border-color: var(--warning); color: var(--warning); }
-.tooth[data-condition="implant"] .tooth-shape,
-.tooth-shape[data-condition="implant"] { background: var(--purple-soft); border-color: var(--purple); color: var(--purple); }
-.tooth[data-condition="root_canal"] .tooth-shape,
-.tooth-shape[data-condition="root_canal"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-.tooth[data-condition="missing"] .tooth-shape,
-.tooth-shape[data-condition="missing"] { background: var(--surface-3); border-style: dashed; opacity: .55; }
-.tooth[data-condition="extraction_needed"] .tooth-shape,
-.tooth-shape[data-condition="extraction_needed"] { background: var(--danger-soft); border-color: var(--danger); border-style: dashed; color: var(--danger); }
-.tooth[data-condition="sealant"] .tooth-shape,
-.tooth-shape[data-condition="sealant"] { background: var(--success-soft); border-color: var(--success); color: var(--success); }
+.tooth-crown { fill: var(--surface-2); stroke: none; }
+/* The nerve: hollow while it is alive, filled once it has been taken out. */
+.tooth-pulp { fill: none; stroke: var(--text-faint); stroke-width: .9; opacity: .32; }
+.tooth-pulp.canal { stroke-width: .9; }
+.tooth-implant {
+  fill: none; stroke: var(--purple); stroke-width: 2; stroke-linecap: round;
+}
+.tooth-cross { stroke: var(--text-faint); stroke-width: 2.2; stroke-linecap: round; }
+.tooth-cross.pending { stroke: var(--danger); stroke-width: 2; }
+.tooth-surfaces {
+  font-size: 13px; font-weight: 700; fill: var(--text-muted);
+  font-family: inherit; paint-order: stroke;
+  stroke: var(--surface-1); stroke-width: 3px; stroke-linejoin: round;
+}
+.tooth:hover .tooth-svg { transform: translateY(-2px); }
+.tooth:hover .tooth-outline { stroke: var(--accent); }
+.tooth-svg { transition: transform .12s ease; }
+
+/* ---------- conditions ------------------------------------------------- */
+.tooth[data-condition="caries"] .tooth-crown {
+  fill: var(--danger-soft); stroke: var(--danger);
+}
+.tooth[data-condition="filled"] .tooth-crown {
+  fill: var(--info-soft); stroke: var(--info);
+}
+.tooth[data-condition="crown"] .tooth-crown,
+.tooth[data-condition="veneer"] .tooth-crown,
+.tooth[data-condition="bridge"] .tooth-crown {
+  fill: var(--warning-soft); stroke: var(--warning); stroke-width: 2.2;
+}
+.tooth[data-condition="implant"] .tooth-crown,
+.tooth[data-condition="implant"] .tooth-crown-only {
+  fill: var(--purple-soft); stroke: var(--purple);
+}
+.tooth[data-condition="sealant"] .tooth-crown {
+  fill: var(--success-soft); stroke: var(--success);
+}
+.tooth[data-condition="missing"] .tooth-outline {
+  fill: var(--surface-3); stroke-dasharray: 3 3;
+}
+.tooth[data-condition="missing"] .tooth-outline,
+.tooth[data-condition="missing"] .tooth-crown { opacity: .45; }
+.tooth[data-condition="extraction_needed"] .tooth-outline {
+  stroke: var(--danger); stroke-dasharray: 3 2;
+}
+.tooth[data-condition="extraction_needed"] .tooth-crown { fill: var(--danger-soft); }
+
+/* A treated nerve: the chamber and every canal filled solid with the material
+   that replaced it, which is what makes an endodontic tooth recognisable. */
+.tooth[data-condition="root_canal"] .tooth-crown {
+  fill: var(--accent-soft); stroke: var(--accent);
+}
+.tooth-pulp.treated {
+  fill: var(--accent); stroke: var(--accent); stroke-width: 1.6; opacity: 1;
+}
+
+.legend-tooth { display: inline-flex; }
+.legend-tooth .tooth-svg { width: 15px; height: 24px; }
 
 /* ---------- Tabs, chips, misc --------------------------------------- */
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 18px; overflow-x: auto; }
