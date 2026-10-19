@@ -1303,3 +1303,109 @@ describe('stock', () => {
     assert.equal(res.status, 403);
   });
 });
+
+/**
+ * Medicines and prescriptions.
+ *
+ * The one rule worth guarding: a prescription keeps its own words. Editing
+ * the clinic's list next year must not rewrite what a patient was told to
+ * take last year, because they are holding the paper.
+ */
+describe('prescribing', () => {
+  let patientId;
+  let medicineId;
+
+  before(async () => {
+    await login('admin@test.local', 'test12345', 'admin');
+    const made = await post('/api/patients', { first_name: 'Rx', last_name: 'Test' });
+    patientId = made.body.patient.id;
+  });
+
+  test('the dental starter list can be put in, and twice is harmless', async () => {
+    const first = await post('/api/medicines/seed', {});
+    assert.equal(first.status, 200);
+    assert.ok(first.body.added > 20, 'a usable dental list, not a token one');
+
+    const again = await post('/api/medicines/seed', {});
+    assert.equal(again.body.added, 0, 'running it twice must not duplicate the list');
+  });
+
+  test('it carries the things a dentist needs to see', async () => {
+    const res = await get('/api/medicines?q=amoxicillin');
+    const amox = res.body.medicines.find((m) => m.name === 'Amoxicillin');
+    assert.ok(amox);
+    medicineId = amox.id;
+    assert.equal(amox.category, 'Antibiotic');
+    assert.ok(amox.dose && amox.frequency && amox.duration, 'a usual dose to start from');
+    assert.match(amox.caution, /penicillin/i, 'the allergy question is not optional');
+    assert.ok(amox.name_ar, 'the patient reads the paper');
+  });
+
+  test('a prescription copies the words rather than pointing at the list', async () => {
+    const made = await post(`/api/patients/${patientId}/prescriptions`, {
+      items: [{
+        medicine_id: medicineId, name: 'Amoxicillin 500 mg', dose: '1 capsule',
+        frequency: '3 times a day', duration: '5 days', instructions: 'After food.',
+      }],
+      notes: 'Return if the swelling spreads.',
+    });
+    assert.equal(made.status, 201);
+
+    // Now the clinic changes its list.
+    await put(`/api/medicines/${medicineId}`, {
+      name: 'Amoxicillin', category: 'Antibiotic', form: 'capsule',
+      strength: '250 mg', dose: '2 capsules', frequency: 'twice a day', duration: '7 days',
+    });
+
+    const res = await get(`/api/patients/${patientId}/prescriptions`);
+    const [item] = res.body.prescriptions[0].items;
+    assert.equal(item.dose, '1 capsule', 'what the patient was told must not change');
+    assert.equal(item.frequency, '3 times a day');
+    assert.equal(item.duration, '5 days');
+  });
+
+  test('it records who prescribed it and when', async () => {
+    const res = await get(`/api/patients/${patientId}/prescriptions`);
+    const rx = res.body.prescriptions[0];
+    assert.ok(rx.prescriber, 'a prescription without a prescriber is not a prescription');
+    assert.match(rx.issued_on, /^\d{4}-\d{2}-\d{2}$/);
+    assert.equal(rx.notes, 'Return if the swelling spreads.');
+  });
+
+  test('an empty prescription is refused', async () => {
+    const res = await post(`/api/patients/${patientId}/prescriptions`, { items: [] });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /at least one medicine/);
+  });
+
+  test('a medicine written by hand needs no list entry', async () => {
+    const res = await post(`/api/patients/${patientId}/prescriptions`, {
+      items: [{ name: 'Something the pharmacy suggested', dose: '1', frequency: 'daily' }],
+    });
+    assert.equal(res.status, 201);
+    const list = await get(`/api/patients/${patientId}/prescriptions`);
+    const freehand = list.body.prescriptions[0].items[0];
+    assert.equal(freehand.medicine_id, null);
+    assert.equal(freehand.name, 'Something the pharmacy suggested');
+  });
+
+  test('retiring a medicine leaves prescriptions alone', async () => {
+    assert.equal((await del(`/api/medicines/${medicineId}`)).status, 200);
+    const offered = await get('/api/medicines');
+    assert.ok(!offered.body.medicines.some((m) => m.id === medicineId),
+      'it stops being offered');
+
+    const list = await get(`/api/patients/${patientId}/prescriptions`);
+    const written = list.body.prescriptions.find((rx) =>
+      rx.items.some((i) => i.name === 'Amoxicillin 500 mg'));
+    assert.ok(written, 'what was already prescribed is untouched');
+  });
+
+  test('a receptionist may read the list but not prescribe', async () => {
+    await login('desk@test.local', 'test12345', 'receptionist');
+    assert.equal((await get('/api/medicines', { as: 'receptionist' })).status, 200);
+    const res = await post(`/api/patients/${patientId}/prescriptions`,
+      { items: [{ name: 'Anything' }] }, { as: 'receptionist' });
+    assert.equal(res.status, 403);
+  });
+});

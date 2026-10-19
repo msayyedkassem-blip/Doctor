@@ -53,7 +53,8 @@ const PORTABLE = [
   'routes/appointments.js', 'routes/procedures.js', 'routes/clinical.js',
   'routes/invoices.js', 'routes/payments.js', 'routes/expenses.js',
   'routes/reports.js', 'routes/messages.js', 'routes/licence.js',
-  'routes/attachments.js', 'routes/stock.js',
+  'routes/attachments.js', 'routes/stock.js', 'routes/medicines.js',
+  'lib/dental-formulary.js',
 ];
 
 fs.rmSync(SHARED, { recursive: true, force: true });

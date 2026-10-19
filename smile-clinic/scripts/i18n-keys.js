@@ -87,6 +87,13 @@ const INDIRECT = [
   // Stock labels chosen from a map or a ternary at display time.
   'Running out only', 'Include retired', 'Add an item', 'Item added', 'Item saved',
   'Used', 'Wasted or broken', 'Expired', 'Counted on the shelf',
+  // Medicine categories, forms and cautions, read from the clinic's own list.
+  'Antibiotic', 'Pain relief', 'Swelling', 'Mouthwash', 'Topical', 'Antifungal',
+  'Antiviral', 'Prevention', 'Other',
+  'tablet', 'capsule', 'syrup', 'gel', 'mouthwash',
+  'Edit medicine', 'Usual dose',
+  'A prescription needs at least one medicine', 'No such medicine',
+  'No such prescription',
   'That is not a reason for a change', 'No such item',
 ];
 

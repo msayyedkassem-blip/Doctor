@@ -148,6 +148,17 @@ export const api = {
   // syncing between devices
   syncDevices: () => request('GET', '/api/sync/devices'),
 
+  medicines: (query) => request('GET', `/api/medicines${query ? `?${query}` : ''}`),
+  addMedicine: (body) => request('POST', '/api/medicines', body),
+  updateMedicine: (id, body) => request('PUT', `/api/medicines/${id}`, body),
+  retireMedicine: (id) => request('DELETE', `/api/medicines/${id}`),
+  seedMedicines: () => request('POST', '/api/medicines/seed', {}),
+
+  prescriptions: (patientId) => request('GET', `/api/patients/${patientId}/prescriptions`),
+  addPrescription: (patientId, body) =>
+    request('POST', `/api/patients/${patientId}/prescriptions`, body),
+  deletePrescription: (id) => request('DELETE', `/api/prescriptions/${id}`),
+
   stock: (query) => request('GET', `/api/stock${query ? `?${query}` : ''}`),
   stockItem: (id) => request('GET', `/api/stock/${id}`),
   shoppingList: () => request('GET', '/api/stock/shopping-list'),

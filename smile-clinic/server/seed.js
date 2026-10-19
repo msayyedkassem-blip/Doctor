@@ -8,6 +8,7 @@ import { q, insert, tx, closeDb } from './db.js';
 import { installNodeDriver } from './db-node.js';
 import { installNodeCrypto } from './lib/crypto-node.js';
 import { dbPath } from './config.js';
+import { seedFormulary } from './lib/dental-formulary.js';
 import { hashPassword } from './lib/auth.js';
 import { lineTotal, invoiceTotals } from './lib/money.js';
 import { DEFAULT_SETTINGS } from './routes/settings.js';
@@ -129,6 +130,8 @@ tx(() => {
   }));
   const dentistIds = [userIds[0], userIds[1], userIds[2]];
   const frontDesk = userIds[3];
+
+  seedFormulary(insert, q, now());
 
 // ---- the store cupboard ----------------------------------------------------
 // A real dental cupboard, with a few things deliberately low so the screen
@@ -450,6 +453,7 @@ const counts = {
   payments: q.get('SELECT COUNT(*) AS n FROM payments').n,
   expenses: q.get('SELECT COUNT(*) AS n FROM expenses').n,
   stock: q.get('SELECT COUNT(*) AS n FROM stock_items').n,
+  medicines: q.get('SELECT COUNT(*) AS n FROM medicines').n,
 };
 console.log('[seed] done:', counts);
 console.log('\nSign in with any of these (password: demo1234):');

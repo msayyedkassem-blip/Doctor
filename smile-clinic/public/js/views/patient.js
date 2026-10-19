@@ -1,6 +1,7 @@
 import { t } from '../i18n.js';
 import { toothDrawing } from './tooth.js';
 import { imagesTab } from './images.js';
+import { prescriptionsCard, printRecord } from './documents.js';
 import { api } from '../api.js';
 import {
   el, clear, money, fmtDate, fmtTime, age, table, emptyState, can,
@@ -40,6 +41,8 @@ export default async function patientView(ctx) {
     ].filter(Boolean).reduce((host, node) => (host.append(node), host), el('span')),
     [
       el('a', { class: 'btn', href: '#/patients', text: t('← All patients') }),
+      el('button', { class: 'btn', text: t('🖶 Record'), title: t('Print the whole file, '
+        + 'or save it as a PDF'), onClick: () => printRecord(p.id) }),
       can('appointments:write')
         ? el('button', { class: 'btn', text: t('Book'), onClick: () =>
           appointmentDialog({ patient: p, onSaved: reload }) })
@@ -62,6 +65,7 @@ export default async function patientView(ctx) {
     { id: 'treatments', label: t('Treatments ({n})', { n: data.treatments.length }) },
     { id: 'appointments', label: t('Visits ({n})', { n: data.appointments.length }) },
     { id: 'images', label: t('Images'), permission: 'clinical:read' },
+    { id: 'prescriptions', label: t('Prescriptions'), permission: 'clinical:read' },
     { id: 'billing', label: t('Billing ({n})', { n: data.invoices.length }), permission: 'invoices:read' },
   ].filter((row) => !row.permission || can(row.permission));
 
@@ -88,6 +92,7 @@ export default async function patientView(ctx) {
       treatments: () => treatmentsTab(data, ctx),
       appointments: () => appointmentsTab(data, ctx),
       images: () => imagesTab(data.patient, ctx.rerender),
+      prescriptions: () => prescriptionsCard(data.patient, ctx.rerender),
       billing: () => billingTab(data, ctx),
     }[activeTab];
 

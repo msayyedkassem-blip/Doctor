@@ -17,6 +17,7 @@ export default async function settings(ctx) {
   const TABS = [
     { id: 'clinic', label: t('Clinic') },
     { id: 'procedures', label: t('Price list') },
+    { id: 'medicines', label: t('Medicines'), permission: 'clinical:read' },
     { id: 'messages', label: t('WhatsApp'), permission: 'messages:read' },
     { id: 'sync', label: t('Devices'), permission: 'sync:manage' },
     { id: 'users', label: t('Staff'), permission: 'users:read' },
@@ -37,7 +38,7 @@ export default async function settings(ctx) {
 
   async function load() {
     clear(host).append(loading());
-    const render = { clinic: clinicTab, procedures: proceduresTab,
+    const render = { clinic: clinicTab, procedures: proceduresTab, medicines: medicinesTab,
       messages: messagesTab, sync: syncTab, users: usersTab }[tab];
     clear(host).append(await render(load));
   }
@@ -299,6 +300,121 @@ function languageCard() {
       }))),
     ]),
   ]);
+}
+
+/**
+ * The clinic's medicine list.
+ *
+ * Seeded with a dental starter set, then owned by the clinic: what is
+ * licensed, available and stocked differs by country and by the pharmacy
+ * downstairs, so every field is editable and nothing here is a rule.
+ */
+async function medicinesTab(reload) {
+  const { medicines } = await api.medicines('all=1');
+  const editable = can('procedures:write');
+
+  return el('div', { class: 'card' }, [
+    el('div', { class: 'card-head' }, [
+      el('h2', { text: t('Medicines ({n})', { n: medicines.filter((m) => m.active).length }) }),
+      editable
+        ? el('div', { class: 'row' }, [
+          medicines.length ? null : el('button', {
+            class: 'btn btn-sm', text: t('Fill with the dental starter list'),
+            onClick: async (event) => {
+              event.target.disabled = true;
+              const { added } = await api.seedMedicines();
+              toast(t('{n} medicines added', { n: added }), 'success');
+              await reload();
+            },
+          }),
+          el('button', {
+            class: 'btn btn-primary btn-sm', text: t('+ Add medicine'),
+            onClick: () => medicineDialog({ onSaved: reload }),
+          }),
+        ].filter(Boolean))
+        : null,
+    ]),
+    el('div', { class: 'card-body flush' }, table([
+      { title: t('Medicine'), render: (m) => el('div', {}, [
+        el('div', { class: m.active ? 'strong' : 'faint' },
+          [m.name, m.strength].filter(Boolean).join(' ')),
+        m.name_ar ? el('div', { class: 'small faint' }, m.name_ar) : null,
+        !m.active ? el('span', { class: 'badge', text: t('Retired') }) : null,
+      ]) },
+      { title: t('Category'), render: (m) => el('span', { class: 'badge', text: t(m.category) }) },
+      { title: t('Form'), render: (m) => t(m.form) },
+      { title: t('Usual dose'), render: (m) =>
+        [m.dose, m.frequency, m.duration].filter(Boolean).join(' · ') || '—' },
+      { title: t('Caution'), render: (m) => (m.caution
+        ? el('span', { class: 'small', style: { color: 'var(--danger)' } }, t(m.caution))
+        : '—') },
+    ], medicines, {
+      onRowClick: editable ? (m) => medicineDialog({ medicine: m, onSaved: reload }) : null,
+      empty: t('No medicines yet.'),
+    })),
+  ]);
+}
+
+function medicineDialog({ medicine, onSaved }) {
+  const form = el('form', {}, [
+    el('div', { class: 'field-row' }, [
+      field('Name', input('name', { value: medicine?.name || '', required: true })),
+      field('Name in Arabic', input('name_ar', { value: medicine?.name_ar || '' })),
+    ]),
+    el('div', { class: 'field-row-3' }, [
+      field('Generic', input('generic', { value: medicine?.generic || '' })),
+      field('Category', input('category', { value: medicine?.category || 'Other' })),
+      field('Form', input('form', { value: medicine?.form || 'tablet' })),
+    ]),
+    el('div', { class: 'field-row-3' }, [
+      field('Strength', input('strength', { value: medicine?.strength || '' })),
+      field('Dose', input('dose', { value: medicine?.dose || '' })),
+      field('How often', input('frequency', { value: medicine?.frequency || '' })),
+    ]),
+    el('div', { class: 'field-row' }, [
+      field('For how long', input('duration', { value: medicine?.duration || '' })),
+      field('Instructions', input('instructions', { value: medicine?.instructions || '' })),
+    ]),
+    field('Caution', input('caution', { value: medicine?.caution || '' }),
+      'Shown as a warning whenever this medicine is chosen'),
+  ]);
+
+  onSubmit(form, async (values) => {
+    if (medicine) await api.updateMedicine(medicine.id, values);
+    else await api.addMedicine(values);
+    closeModal();
+    toast(t('Medicine saved'), 'success');
+    await onSaved();
+  });
+
+  modal({
+    title: t(medicine ? 'Edit medicine' : 'Add a medicine'),
+    width: 'wide',
+    body: form,
+    footer: [
+      medicine && medicine.active
+        ? el('button', {
+          class: 'btn btn-danger', text: t('Retire'),
+          onClick: () => confirmDialog({
+            title: t('Retire {name}?', { name: medicine.name }),
+            message: t('It stops being offered when prescribing. '
+              + 'Prescriptions already written are unchanged.'),
+            confirmLabel: t('Retire'),
+            danger: true,
+            onConfirm: async () => {
+              await api.retireMedicine(medicine.id);
+              closeModal();
+              toast(t('Medicine retired'));
+              await onSaved();
+            },
+          }),
+        })
+        : null,
+      el('button', { class: 'btn right', text: t('Cancel'), onClick: () => closeModal() }),
+      el('button', { class: 'btn btn-primary', text: t('Save'),
+        onClick: () => form.requestSubmit() }),
+    ].filter(Boolean),
+  });
 }
 
 // ---------- Price list ---------------------------------------------------

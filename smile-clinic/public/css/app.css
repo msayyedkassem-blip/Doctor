@@ -506,6 +506,64 @@ tbody tr.clickable:hover { background: var(--surface-2); }
   fill: var(--accent); stroke: var(--accent); stroke-width: 1.6; opacity: 1;
 }
 
+/* ---------- printed documents ------------------------------------------
+   A prescription and a patient record are the two things that leave the
+   clinic on paper. They are laid out for A4 first and only then for the
+   screen, because the screen is the preview. */
+.doc { font-size: 13px; color: var(--text); }
+.doc-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 20px; border-bottom: 2px solid var(--text); padding-bottom: 10px;
+}
+.doc-clinic { font-size: 18px; font-weight: 700; }
+.doc-contact { font-size: 11.5px; color: var(--text-muted); }
+.doc-title { text-align: end; }
+.doc-patient {
+  margin: 14px 0; padding: 10px 12px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--surface-2);
+}
+.doc-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 4px 18px;
+}
+.doc-pair { display: flex; gap: 6px; font-size: 12.5px; }
+.doc-label { color: var(--text-muted); font-size: 11.5px; }
+.doc-allergy {
+  margin-top: 8px; font-weight: 600; color: var(--danger);
+}
+.doc-notes { margin-top: 8px; font-size: 12.5px; }
+.doc-section { margin-top: 18px; break-inside: auto; }
+.doc-section h3 {
+  font-size: 13.5px; margin: 0 0 6px; padding-bottom: 4px;
+  border-bottom: 1px solid var(--border); break-after: avoid;
+}
+.doc-empty { color: var(--text-faint); font-size: 12.5px; }
+.doc-rx { margin: 6px 0 0; padding-inline-start: 22px; }
+.doc-rx li { margin-bottom: 8px; break-inside: avoid; }
+.doc-sig { font-size: 12px; color: var(--text-muted); }
+.doc-rx-block { break-inside: avoid; }
+.doc-sign {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-top: 34px; gap: 30px;
+}
+.doc-signature { min-width: 190px; text-align: center; }
+.doc-rule { border-top: 1px solid var(--text); margin-bottom: 4px; height: 26px; }
+.doc-total { text-align: end; font-weight: 700; margin-top: 6px; }
+.doc-foot {
+  margin-top: 22px; padding-top: 8px; border-top: 1px solid var(--border);
+  font-size: 10.5px; color: var(--text-faint);
+}
+.doc-arches { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.doc-arch { display: flex; gap: 1px; justify-content: center; }
+.doc-tooth { text-align: center; width: 26px; }
+.doc-tooth .tooth-svg { width: 24px; height: 38px; }
+.doc-tooth-num { font-size: 8px; color: var(--text-faint); }
+.doc-images {
+  display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+.doc-images figure { margin: 0; break-inside: avoid; }
+.doc-images img { width: 100%; border-radius: 4px; background: #000; }
+.doc-images figcaption { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; }
+
 /* ---------- x-rays and photographs ------------------------------------- */
 .image-grid {
   display: grid; gap: 12px;
@@ -632,6 +690,12 @@ tbody tr.clickable:hover { background: var(--surface-2); }
 
 @media print {
   .sidebar, .topbar, .modal-foot, .no-print { display: none !important; }
+  @page { margin: 14mm; }
+  .doc { font-size: 11.5px; }
+  .doc-section { page-break-inside: auto; }
+  .doc-section h3 { page-break-after: avoid; }
+  .doc-rx li, .doc-rx-block, .doc-images figure { page-break-inside: avoid; }
+  .doc-patient { background: none; }
   .print-only { display: block; }
   body, .modal-backdrop, .modal { background: #fff; color: #000; }
   .modal-backdrop { position: static; padding: 0; display: block; backdrop-filter: none; }
