@@ -4,6 +4,10 @@ import { requireAuth, requirePermission } from '../lib/auth.js';
 import { logAction } from '../lib/audit.js';
 
 export const DEFAULT_SETTINGS = {
+  assistant_enabled: '',
+  assistant_key: '',
+  assistant_model: 'claude-opus-5-5',
+  assistant_endpoint: '',
   clinic_name: 'Smile Dental Clinic',
   clinic_address: '',
   clinic_phone: '',
@@ -32,7 +36,7 @@ export const DEFAULT_SETTINGS = {
 };
 
 /** Never sent to the browser, and never returned by the settings endpoint. */
-const SECRET_SETTINGS = new Set(['whatsapp_token']);
+const SECRET_SETTINGS = new Set(['whatsapp_token', 'assistant_key']);
 
 export function allSettings() {
   const rows = q.all('SELECT key, value FROM settings');

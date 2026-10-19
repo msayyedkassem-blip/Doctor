@@ -33,6 +33,7 @@ That's the whole installation. `npm start` runs plain Node — there is no
 - [Install it on phones and tablets](#install-it-on-phones-and-tablets)
 - [Arabic](#arabic)
 - [WhatsApp messaging](#whatsapp-messaging)
+- [The front desk assistant](#the-front-desk-assistant)
 - [Keeping devices in step](#keeping-devices-in-step)
 - [Roles and permissions](#roles-and-permissions)
 - [How the money works](#how-the-money-works)
@@ -450,6 +451,56 @@ Every message is logged with who sent it, what it said and when.
 like `{{patient_name}}` or `{{balance}}`. A line containing *only* a placeholder
 disappears when that value is empty, so optional lines never leave a hole in the
 message. Only administrators can change templates; any staff member can send.
+
+---
+
+## The front desk assistant
+
+Optional, off until you turn it on, and the only part of the app that needs
+the internet.
+
+### What it does
+
+You paste what a patient sent on WhatsApp and it writes a reply in the
+clinic's voice, with the real appointment time and the real balance already
+in it. You read it, change it, and send it the normal way. It answers in
+whichever language the patient wrote in.
+
+### What it does not do
+
+**It does not answer WhatsApp on its own.** For that a clinic needs the
+WhatsApp Business API *and* a server the internet can reach, and a computer
+behind a home or clinic router is not one. Anyone who tells you otherwise is
+selling you a hosted service. If you later want true auto-answering, that is
+the piece to add — a small always-on server with a public address — and the
+drafting here is the half that keeps working either way.
+
+It also never gives clinical advice. If a message is about pain, bleeding or
+swelling it says the clinic will call back, because software that suggests a
+diagnosis over WhatsApp is a liability, not a feature.
+
+### What leaves the clinic
+
+Only this, and only when somebody presses the button:
+
+- the patient's **first name** — not their surname
+- their **next appointment**, if they have one
+- **what they owe**, if anything
+- the clinic's own name, phone, address and opening hours
+
+Never the medical notes, the chart, the x-rays, the treatment history, or
+anything else on the file. The patient's record stays in the clinic.
+
+### Turning it on
+
+**Settings → Front desk assistant.** You need a key from
+[console.anthropic.com](https://console.anthropic.com). The key is stored on
+that computer and never sent back to a browser — once saved, nobody can read
+it out of the app again. Each drafted message costs a small amount, billed by
+Anthropic, not by this software.
+
+`assistant_endpoint` can be set if your clinic has to go out through its own
+gateway.
 
 ---
 

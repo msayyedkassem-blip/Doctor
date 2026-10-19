@@ -148,6 +148,9 @@ export const api = {
   // syncing between devices
   syncDevices: () => request('GET', '/api/sync/devices'),
 
+  assistantStatus: () => request('GET', '/api/assistant'),
+  draftMessage: (body) => request('POST', '/api/assistant/draft', body),
+
   medicines: (query) => request('GET', `/api/medicines${query ? `?${query}` : ''}`),
   addMedicine: (body) => request('POST', '/api/medicines', body),
   updateMedicine: (id, body) => request('PUT', `/api/medicines/${id}`, body),

@@ -853,4 +853,40 @@ export const AR = {
   'A prescription needs at least one medicine': 'الوصفة تحتاج دواءً واحدًا على الأقل',
   'No such medicine': 'لا يوجد دواء بهذا الرقم',
   'No such prescription': 'لا توجد وصفة بهذا الرقم',
+
+  // ---- the front desk assistant -------------------------------------------
+  'Front desk assistant': 'مساعد الاستقبال',
+  'Helps write messages to patients. You paste what the patient sent, it writes a reply with the real appointment time and balance already in it, and you read and edit it before sending.':
+    'يساعد في كتابة الرسائل للمرضى. تلصق ما أرسله المريض، فيكتب ردًّا يتضمّن موعده الحقيقي ورصيده، ثم تقرأه وتعدّله قبل الإرسال.',
+  '⚠ This is the one part of the app that needs the internet. When you use it, the patient’s first name, their next appointment and what they owe are sent to Anthropic to write the reply. Medical notes, the chart and images are never sent. It costs a small amount for each message.':
+    '⚠ هذا هو الجزء الوحيد من التطبيق الذي يحتاج إلى الإنترنت. عند استخدامه يُرسَل الاسم الأول للمريض وموعده القادم وما عليه من مستحقات إلى Anthropic لكتابة الرد. أما الملاحظات الطبية والمخطط والصور فلا تُرسل أبدًا. ولكل رسالة تكلفة بسيطة.',
+  'Turn the assistant on': 'تشغيل المساعد',
+  'Assistant key': 'مفتاح المساعد',
+  'From console.anthropic.com. Kept on this computer and never shown again.':
+    'من console.anthropic.com. يُحفظ على هذا الحاسوب ولا يُعرض مرة أخرى.',
+  'Model': 'النموذج',
+  'Leave as it is unless you have a reason to change it': 'اتركه كما هو ما لم يكن لديك سبب لتغييره',
+  'Ask the assistant': 'اسأل المساعد',
+  'Paste what the patient wrote, or say what this message is about':
+    'الصق ما كتبه المريض، أو اذكر موضوع الرسالة',
+  '✦ Draft a reply': '✦ اكتب ردًّا',
+  'Writing…': 'جارٍ الكتابة…',
+  'a friendly message': 'رسالة ودّية',
+  'Read it before you send it. The patient’s first name, their next appointment and what they owe are sent to write it.':
+    'اقرأه قبل الإرسال. يُرسَل الاسم الأول للمريض وموعده القادم وما عليه من مستحقات لكتابته.',
+  // Sentences the assistant sends back.
+  'No assistant key is set. Add one in Settings.':
+    'لم يُضبط مفتاح للمساعد. أضف مفتاحًا من الإعدادات.',
+  'Paste what the patient wrote, or say what the message should be about.':
+    'الصق ما كتبه المريض، أو اذكر ما ينبغي أن تدور حوله الرسالة.',
+  'Could not reach the assistant. Check this computer is online.':
+    'تعذّر الوصول إلى المساعد. تأكد من اتصال هذا الحاسوب بالإنترنت.',
+  'That assistant key was not accepted.': 'لم يُقبل مفتاح المساعد هذا.',
+  'The assistant is busy. Try again in a moment.': 'المساعد مشغول. أعد المحاولة بعد قليل.',
+  'The assistant would not write that one. Please write it yourself.':
+    'امتنع المساعد عن كتابة هذه الرسالة. اكتبها بنفسك من فضلك.',
+  'The assistant sent nothing back. Please write it yourself.':
+    'لم يُرسل المساعد أي رد. اكتب الرسالة بنفسك من فضلك.',
+  'The assistant is switched off. An administrator can turn it on in Settings.':
+    'المساعد مُطفأ. يمكن للمدير تشغيله من الإعدادات.',
 };

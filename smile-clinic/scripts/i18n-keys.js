@@ -94,6 +94,17 @@ const INDIRECT = [
   'Edit medicine', 'Usual dose',
   'A prescription needs at least one medicine', 'No such medicine',
   'No such prescription',
+  // Sentences the assistant sends back.
+  'No assistant key is set. Add one in Settings.',
+  'From console.anthropic.com. Kept on this computer and never shown again.',
+  'Leave as it is unless you have a reason to change it',
+  'Paste what the patient wrote, or say what the message should be about.',
+  'Could not reach the assistant. Check this computer is online.',
+  'That assistant key was not accepted.',
+  'The assistant is busy. Try again in a moment.',
+  'The assistant would not write that one. Please write it yourself.',
+  'The assistant sent nothing back. Please write it yourself.',
+  'The assistant is switched off. An administrator can turn it on in Settings.',
   'That is not a reason for a change', 'No such item',
 ];
 

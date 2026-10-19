@@ -124,7 +124,8 @@ async function clinicTab() {
 
   // Kept outside the form so its buttons can never submit the settings.
   return el('div', {}, [
-    form, await licenceCard(), languageCard(), await devicesCard(),
+    form, await licenceCard(), await assistantCard(), languageCard(),
+    await devicesCard(),
     await storageCard(), await syncCard(), await connectCard(),
   ]);
 }
@@ -298,6 +299,70 @@ function languageCard() {
         text: l.name,
         onClick: () => setLanguage(l.code),
       }))),
+    ]),
+  ]);
+}
+
+/**
+ * Turning the front desk assistant on.
+ *
+ * Off until somebody chooses it, and the screen says plainly what leaves the
+ * clinic when they do. A practice should not discover afterwards that its
+ * patients' names went to a company it had not heard of.
+ */
+async function assistantCard() {
+  const { settings: s } = await api.settings();
+  if (!can('settings:write')) return el('span');
+
+  const enabled = input('assistant_enabled', { type: 'checkbox' });
+  enabled.checked = Boolean(s.assistant_enabled);
+  const key = input('assistant_key', {
+    type: 'password', placeholder: s.assistant_key_set ? '••••••••••••' : 'sk-ant-…',
+  });
+  const model = input('assistant_model', { value: s.assistant_model || 'claude-opus-5-5' });
+
+  return el('div', { class: 'card mt' }, [
+    el('div', { class: 'card-head' }, [el('h2', { text: t('Front desk assistant') })]),
+    el('div', { class: 'card-body' }, [
+      el('p', { class: 'small muted', text: t('Helps write messages to patients. You paste '
+        + 'what the patient sent, it writes a reply with the real appointment time and '
+        + 'balance already in it, and you read and edit it before sending.') }),
+      el('p', { class: 'alert-chip', text: t('⚠ This is the one part of the app that needs '
+        + 'the internet. When you use it, the patient\u2019s first name, their next '
+        + 'appointment and what they owe are sent to Anthropic to write the reply. '
+        + 'Medical notes, the chart and images are never sent. It costs a small amount '
+        + 'for each message.') }),
+      el('div', { class: 'row mt' }, [
+        enabled,
+        el('label', { for: enabled.id || null, text: t('Turn the assistant on') }),
+      ]),
+      el('div', { class: 'field-row mt' }, [
+        field('Assistant key', key, 'From console.anthropic.com. Kept on this computer '
+          + 'and never shown again.'),
+        field('Model', model, 'Leave as it is unless you have a reason to change it'),
+      ]),
+      el('div', { class: 'row mt' }, [
+        el('button', {
+          class: 'btn btn-primary', type: 'button', text: t('Save'),
+          onClick: async (event) => {
+            event.target.disabled = true;
+            try {
+              const body = {
+                assistant_enabled: enabled.checked ? '1' : '',
+                assistant_model: model.value,
+              };
+              // An empty box means "leave the key alone", not "delete it".
+              if (key.value) body.assistant_key = key.value;
+              await api.saveSettings(body);
+              toast(t('Settings saved'), 'success');
+            } catch (err) {
+              toast(t(err.message), 'error');
+            } finally {
+              event.target.disabled = false;
+            }
+          },
+        }),
+      ]),
     ]),
   ]);
 }

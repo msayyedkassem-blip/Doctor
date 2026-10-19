@@ -164,12 +164,55 @@ export async function whatsappDialog({
     toast(t('WhatsApp opened — press send there'), 'success');
   });
 
+  // The assistant, when a clinic has turned it on: paste what the patient
+  // sent and get a reply with the real appointment and balance already in it.
+  const assistant = el('div', { class: 'assistant-box' });
+  api.assistantStatus().then((state) => {
+    if (!state.enabled) return;
+    const heard = el('textarea', {
+      name: 'patient_said', rows: 2,
+      placeholder: t('Paste what the patient wrote, or say what this message is about'),
+    });
+    const draft = el('button', {
+      class: 'btn btn-sm', type: 'button', text: t('✦ Draft a reply'),
+      onClick: async () => {
+        draft.disabled = true;
+        const was = draft.textContent;
+        draft.textContent = t('Writing…');
+        try {
+          const { draft: text } = await api.draftMessage({
+            patient_id: patientId || null,
+            message: heard.value,
+            about: heard.value ? '' : t('a friendly message'),
+          });
+          preview.value = text;
+          edited = true;
+          syncLink();
+          preview.dispatchEvent(new Event('input'));
+        } catch (err) {
+          toast(t(err.message), 'error');
+        } finally {
+          draft.disabled = false;
+          draft.textContent = was;
+        }
+      },
+    });
+    assistant.append(
+      field('Ask the assistant', heard),
+      el('div', { class: 'row' }, [draft]),
+      el('p', { class: 'field-hint', text: t('Read it before you send it. '
+        + 'The patient\u2019s first name, their next appointment and what they owe are '
+        + 'sent to write it.') }),
+    );
+  }).catch(() => {});
+
   const body = el('div', {}, [
     el('div', { class: 'field-row' }, [
       field('Message', templateSelect),
       field('Language', languageSelect),
     ]),
     field('Preview — edit before sending if you like', preview),
+    assistant,
     status,
     settings.mode === 'cloud' && settings.cloud_ready
       ? el('p', { class: 'small faint mt',
