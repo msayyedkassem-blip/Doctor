@@ -25,6 +25,7 @@ import registerExpenses from '../../shared/routes/expenses.js';
 import registerReports from '../../shared/routes/reports.js';
 import registerMessages from '../../shared/routes/messages.js';
 import registerLicence from '../../shared/routes/licence.js';
+import registerAttachments from '../../shared/routes/attachments.js';
 
 import { runSync, registerDevice, syncSummary } from '../../shared/lib/sync-client.js';
 import { installBrowserDriver, exportDatabase, databaseSize } from './sqlite-driver.js';
@@ -38,6 +39,7 @@ for (const register of [
   registerAuth, registerUsers, registerSettings, registerPatients, registerAppointments,
   registerProcedures, registerClinical, registerInvoices, registerPayments,
   registerExpenses, registerReports, registerMessages, registerLicence,
+  registerAttachments,
 ]) register(router);
 
 router.get('/api/health', async (ctx) => {

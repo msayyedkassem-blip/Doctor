@@ -42,7 +42,47 @@ export default function register(router) {
 
   router.get('/api/auth/me', async (ctx) => {
     requireAuth(ctx.user);
-    json(ctx.res, 200, { user: ctx.user, permissions: permissionsFor(ctx.user.role) });
+    const { id, name, email: address, role, color } = ctx.user;
+    json(ctx.res, 200, {
+      user: { id, name, email: address, role, color },
+      permissions: permissionsFor(ctx.user.role),
+    });
+  });
+
+  /**
+   * Where this account is signed in.
+   *
+   * The same sign-in is meant to be used on the phone, the tablet and the
+   * front desk at once, so the list is the answer to the other half of that:
+   * when one of those devices is lost, it has to be possible to cut it off
+   * without changing the password on all of them.
+   */
+  router.get('/api/auth/devices', async (ctx) => {
+    requireAuth(ctx.user);
+    const rows = q.all(
+      `SELECT token_hash, created_at, last_seen, expires_at, user_agent
+         FROM sessions WHERE user_id = ? ORDER BY last_seen DESC`, ctx.user.id);
+    json(ctx.res, 200, {
+      devices: rows.map((row) => ({
+        id: row.token_hash,
+        device: describeDevice(row.user_agent),
+        created_at: row.created_at,
+        last_seen: row.last_seen,
+        expires_at: row.expires_at,
+        current: row.token_hash === ctx.tokenHash,
+      })),
+    });
+  });
+
+  router.delete('/api/auth/devices/:id', async (ctx) => {
+    requireAuth(ctx.user);
+    // Scoped to this account: one person signing another out is what the
+    // staff screen is for, with the permission check that goes with it.
+    const removed = q.run('DELETE FROM sessions WHERE token_hash = ? AND user_id = ?',
+      ctx.params.id, ctx.user.id);
+    if (ctx.params.id === ctx.tokenHash) ctx.res.setHeader('Set-Cookie', clearCookie());
+    logAction(ctx.user, 'device_signed_out', 'user', ctx.user.id);
+    json(ctx.res, 200, { ok: true, removed: removed?.changes ?? 1 });
   });
 
   router.post('/api/auth/password', async (ctx) => {
@@ -64,6 +104,25 @@ export default function register(router) {
     logAction(ctx.user, 'password_changed', 'user', ctx.user.id);
     json(ctx.res, 200, { ok: true });
   });
+}
+
+/**
+ * A sign-in turned into something a person recognises.
+ *
+ * Browsers lie to each other in user-agent strings, so this reads only what is
+ * reliable enough to tell one of the clinic's own devices from another.
+ */
+export function describeDevice(agent) {
+  const ua = String(agent || '');
+  if (!ua) return 'Unknown device';
+  const app = /\bclinic-app\b/i.test(ua) || /\bwv\b/.test(ua) ? ' app' : '';
+  if (/iPad/i.test(ua)) return `iPad${app}`;
+  if (/iPhone/i.test(ua)) return `iPhone${app}`;
+  if (/Android/i.test(ua)) return /Mobile/i.test(ua) ? `Android phone${app}` : `Android tablet${app}`;
+  if (/Macintosh|Mac OS X/i.test(ua)) return 'Mac';
+  if (/Windows/i.test(ua)) return 'Windows PC';
+  if (/Linux/i.test(ua)) return 'Linux computer';
+  return 'Unknown device';
 }
 
 export function publicUser(u) {

@@ -74,6 +74,13 @@ const INDIRECT = [
   'That key is the wrong length.',
   'That is not a licence key.',
   'That code contains a character it should not.',
+  // Sentences the image routes send back.
+  'That image is too large. Please take or choose a smaller one.',
+  'Only JPEG, PNG and WebP images can be stored',
+  'An image is either an x-ray or a photo',
+  'That file is not an image', 'No image was sent', 'No such image',
+  // Image kinds, picked by the row's own value.
+  'X-ray', 'Photo',
 ];
 
 const keys = new Set(INDIRECT);

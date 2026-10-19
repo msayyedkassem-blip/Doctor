@@ -148,6 +148,13 @@ export const api = {
   // syncing between devices
   syncDevices: () => request('GET', '/api/sync/devices'),
 
+  attachments: (patientId) => request('GET', `/api/patients/${patientId}/attachments`),
+  attachment: (id) => request('GET', `/api/attachments/${id}`),
+  addAttachment: (patientId, body) =>
+    request('POST', `/api/patients/${patientId}/attachments`, body),
+  updateAttachment: (id, body) => request('PATCH', `/api/attachments/${id}`, body),
+  deleteAttachment: (id) => request('DELETE', `/api/attachments/${id}`),
+
   myDevices: () => request('GET', '/api/auth/devices'),
   signOutDevice: (id) => request('DELETE', `/api/auth/devices/${id}`),
 

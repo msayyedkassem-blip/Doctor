@@ -1,10 +1,11 @@
 import { t } from '../i18n.js';
 import { toothDrawing } from './tooth.js';
+import { imagesTab } from './images.js';
 import { api } from '../api.js';
 import {
   el, clear, money, fmtDate, fmtTime, age, table, emptyState, can,
   avatar, appointmentBadge, invoiceBadge, treatmentBadge, toast, confirmDialog,
-  methodLabel, TOOTH_CONDITIONS,
+  methodLabel, TOOTH_CONDITIONS, loading,
 } from '../ui.js';
 import { patientDialog } from './patients.js';
 import {
@@ -60,6 +61,7 @@ export default async function patientView(ctx) {
     { id: 'chart', label: t('Odontogram'), permission: 'clinical:read' },
     { id: 'treatments', label: t('Treatments ({n})', { n: data.treatments.length }) },
     { id: 'appointments', label: t('Visits ({n})', { n: data.appointments.length }) },
+    { id: 'images', label: t('Images'), permission: 'clinical:read' },
     { id: 'billing', label: t('Billing ({n})', { n: data.invoices.length }), permission: 'invoices:read' },
   ].filter((row) => !row.permission || can(row.permission));
 
@@ -85,9 +87,21 @@ export default async function patientView(ctx) {
       chart: () => chartTab(data, ctx),
       treatments: () => treatmentsTab(data, ctx),
       appointments: () => appointmentsTab(data, ctx),
+      images: () => imagesTab(data.patient, ctx.rerender),
       billing: () => billingTab(data, ctx),
     }[activeTab];
-    body.append(render());
+
+    // Images are fetched when their tab is opened rather than with the rest
+    // of the file, so a patient with forty x-rays still opens instantly.
+    const made = render();
+    if (made instanceof Promise) {
+      body.append(loading());
+      made.then((node) => { clear(body).append(node); })
+        .catch((err) => { clear(body).append(
+          el('p', { class: 'alert-chip', text: t(err.message) })); });
+    } else {
+      body.append(made);
+    }
   }
   renderTab();
 

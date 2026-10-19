@@ -520,6 +520,59 @@ describe('two devices', () => {
     await runSync({ fetchImpl: bridgedFetch });
   });
 
+  test('an x-ray taken on the phone reaches the clinic', async () => {
+    setDriver(devices.get('phone'));
+    const now = new Date().toISOString();
+    const patient = q.get("SELECT id FROM patients WHERE last_name = 'حسن'");
+    // Around a quarter of a megabyte of base64, which is what a downscaled
+    // periapical actually weighs once it has been through the browser.
+    const image = 'A'.repeat(240_000);
+    insert('attachments', {
+      patient_id: patient.id, kind: 'xray', caption: 'Periapical 16', tooth: 16,
+      taken_on: now.slice(0, 10), mime: 'image/jpeg', width: 1600, height: 1200,
+      bytes: 180_000, data: image, thumb: 'B'.repeat(6000),
+      created_at: now, updated_at: now,
+    });
+
+    await runSync({ fetchImpl: bridgedFetch });
+
+    setDriver(devices.get('server'));
+    const arrived = q.get("SELECT * FROM attachments WHERE caption = 'Periapical 16'");
+    assert.ok(arrived, 'the x-ray never reached the clinic computer');
+    assert.equal(arrived.data.length, image.length, 'the image arrived whole');
+    assert.equal(arrived.tooth, 16);
+    // The reference followed, like any other row's.
+    assert.ok(q.get('SELECT id FROM patients WHERE id = ?', arrived.patient_id));
+  });
+
+  test('a batch of images is split by size, not just by count', async () => {
+    setDriver(devices.get('phone'));
+    const { collectOutbox } = await import('../server/lib/sync-core.js');
+    const now = new Date().toISOString();
+    const patient = q.get("SELECT id FROM patients WHERE last_name = 'حسن'");
+
+    // Five images of a megabyte each: a count-only limit would try to send
+    // all five in one request, which a phone on clinic Wi-Fi will not finish.
+    for (let i = 0; i < 5; i += 1) {
+      insert('attachments', {
+        patient_id: patient.id, kind: 'xray', caption: `Big ${i}`,
+        mime: 'image/jpeg', bytes: 750_000, data: 'C'.repeat(1_000_000),
+        created_at: now, updated_at: now,
+      });
+    }
+
+    const batch = collectOutbox(200);
+    assert.ok(batch.length < 5, 'the byte budget should cut the batch short');
+    assert.ok(batch.length >= 1, 'a batch always carries at least one change');
+    const size = batch.reduce((n, c) => n + JSON.stringify(c.payload || '').length, 0);
+    assert.ok(size < 4_000_000, `a batch should stay small, was ${size}`);
+
+    // And everything still gets there, batch after batch.
+    await runSync({ fetchImpl: bridgedFetch });
+    setDriver(devices.get('server'));
+    assert.equal(q.get("SELECT COUNT(*) AS n FROM attachments WHERE caption LIKE 'Big %'").n, 5);
+  });
+
   test('the summary reports a healthy connection', async () => {
     setDriver(devices.get('phone'));
     const summary = syncSummary();

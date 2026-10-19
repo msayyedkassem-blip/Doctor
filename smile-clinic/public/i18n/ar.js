@@ -686,4 +686,36 @@ export const AR = {
   'Windows PC': 'حاسوب ويندوز',
   'Linux computer': 'حاسوب لينكس',
   'Unknown device': 'جهاز غير معروف',
+
+  // ---- x-rays and photographs ---------------------------------------------
+  'Images': 'الصور',
+  'X-rays and photos': 'الأشعة والصور',
+  'X-ray': 'أشعة',
+  'Photo': 'صورة',
+  'Clinical image': 'صورة سريرية',
+  'No x-rays or photos yet.': 'لا توجد أشعة أو صور بعد.',
+  '+ Add image': '+ إضافة صورة',
+  'Add an image': 'إضافة صورة',
+  'Add {n} images': 'إضافة {n} صور',
+  'Caption': 'الوصف',
+  'e.g. periapical, upper right': 'مثال: أشعة ذروية، علوي أيمن',
+  'FDI number, if it shows one tooth': 'رقم السن بتصنيف FDI، إن كانت لسن واحد',
+  'The image is made smaller on this device before it is saved, so it reaches the other devices quickly. The original on your phone or camera is not touched.':
+    'تُصغَّر الصورة على هذا الجهاز قبل حفظها لتصل إلى الأجهزة الأخرى بسرعة. والنسخة الأصلية على هاتفك أو الكاميرا تبقى كما هي.',
+  'Saving…': 'جارٍ الحفظ…',
+  'Saving… {done} of {total}': 'جارٍ الحفظ… {done} من {total}',
+  '{n} image(s) saved': 'تم حفظ {n} صورة',
+  '{current} of {total}': '{current} من {total}',
+  'Delete this image?': 'حذف هذه الصورة؟',
+  'It is removed from this patient on every device.':
+    'ستُزال من ملف هذا المريض على كل الأجهزة.',
+  'Image deleted': 'تم حذف الصورة',
+  'That image is too large. Please take or choose a smaller one.':
+    'هذه الصورة كبيرة جدًا. التقط أو اختر صورة أصغر.',
+  'Only JPEG, PNG and WebP images can be stored':
+    'لا يمكن حفظ غير صور JPEG وPNG وWebP',
+  'An image is either an x-ray or a photo': 'الصورة إما أشعة وإما صورة عادية',
+  'That file is not an image': 'هذا الملف ليس صورة',
+  'No image was sent': 'لم تُرسل أي صورة',
+  'No such image': 'لا توجد صورة بهذا الرقم',
 };

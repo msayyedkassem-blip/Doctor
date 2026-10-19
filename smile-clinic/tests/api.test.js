@@ -1081,3 +1081,115 @@ describe('signing in on several devices', () => {
     assert.equal((await get('/api/auth/me', { as: 'phone' })).status, 401);
   });
 });
+
+/**
+ * X-rays and photographs.
+ *
+ * The image is stored in the row, so the thing worth guarding is that a list
+ * never carries the full images — a patient with forty x-rays must still open
+ * — and that nothing but an image gets in.
+ */
+describe('x-rays and photos', () => {
+  // A one-pixel JPEG is enough: what is tested is the handling, not the image.
+  const PIXEL = '/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsL'
+    + 'DBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QA'
+    + 'FAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==';
+  let patientId;
+  let imageId;
+
+  before(async () => {
+    await login('admin@test.local', 'test12345', 'admin');
+    const made = await post('/api/patients', { first_name: 'Imaging', last_name: 'Test' });
+    patientId = made.body.patient.id;
+  });
+
+  test('an image is stored against the patient', async () => {
+    const res = await post(`/api/patients/${patientId}/attachments`, {
+      data: `data:image/jpeg;base64,${PIXEL}`,
+      thumb: `data:image/jpeg;base64,${PIXEL}`,
+      mime: 'image/jpeg',
+      kind: 'xray',
+      tooth: 16,
+      caption: 'Periapical',
+      width: 1, height: 1,
+    });
+    assert.equal(res.status, 201);
+    imageId = res.body.attachment.id;
+    assert.equal(res.body.attachment.kind, 'xray');
+    assert.equal(res.body.attachment.tooth, 16);
+    // The decoded weight, not the base64 it arrived as.
+    assert.ok(res.body.attachment.bytes > 0);
+    assert.ok(res.body.attachment.bytes < PIXEL.length);
+  });
+
+  test('the list carries thumbnails but never the full images', async () => {
+    const res = await get(`/api/patients/${patientId}/attachments`);
+    assert.equal(res.status, 200);
+    const [item] = res.body.attachments;
+    assert.ok(item.thumb, 'a thumbnail is needed to draw the grid');
+    assert.equal(item.data, undefined, 'the full image must not be in the list');
+  });
+
+  test('the full image is fetched one at a time', async () => {
+    const res = await get(`/api/attachments/${imageId}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.attachment.data, PIXEL);
+  });
+
+  test('a data: prefix is accepted and stripped', async () => {
+    const res = await get(`/api/attachments/${imageId}`);
+    assert.ok(!res.body.attachment.data.startsWith('data:'));
+  });
+
+  test('only images get in', async () => {
+    const notAnImage = await post(`/api/patients/${patientId}/attachments`,
+      { data: 'this is not base64 !!', mime: 'image/jpeg' });
+    assert.equal(notAnImage.status, 400);
+
+    const wrongType = await post(`/api/patients/${patientId}/attachments`,
+      { data: PIXEL, mime: 'application/pdf' });
+    assert.equal(wrongType.status, 400);
+    assert.match(wrongType.body.error, /JPEG, PNG and WebP/);
+
+    const wrongKind = await post(`/api/patients/${patientId}/attachments`,
+      { data: PIXEL, mime: 'image/jpeg', kind: 'scan' });
+    assert.equal(wrongKind.status, 400);
+  });
+
+  test('an image too large to move is refused with a sentence', async () => {
+    const huge = 'A'.repeat(6_200_000);
+    const res = await post(`/api/patients/${patientId}/attachments`,
+      { data: huge, mime: 'image/jpeg' });
+    assert.equal(res.status, 400);
+    assert.match(res.body.error, /too large/);
+  });
+
+  test('the caption and tooth can be corrected afterwards', async () => {
+    const res = await patch(`/api/attachments/${imageId}`,
+      { caption: 'Periapical, upper right', tooth: 17, kind: 'photo' });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.attachment.caption, 'Periapical, upper right');
+    assert.equal(res.body.attachment.tooth, 17);
+    assert.equal(res.body.attachment.kind, 'photo');
+  });
+
+  test('a receptionist cannot add or delete clinical images', async () => {
+    await login('desk@test.local', 'test12345', 'receptionist');
+    const added = await post(`/api/patients/${patientId}/attachments`,
+      { data: PIXEL, mime: 'image/jpeg' }, { as: 'receptionist' });
+    assert.equal(added.status, 403);
+    const removed = await del(`/api/attachments/${imageId}`, { as: 'receptionist' });
+    assert.equal(removed.status, 403);
+  });
+
+  test('deleting one leaves the rest', async () => {
+    const second = await post(`/api/patients/${patientId}/attachments`,
+      { data: PIXEL, mime: 'image/jpeg', kind: 'photo' });
+    assert.equal(second.status, 201);
+
+    assert.equal((await del(`/api/attachments/${imageId}`)).status, 200);
+    const left = await get(`/api/patients/${patientId}/attachments`);
+    assert.equal(left.body.attachments.length, 1);
+    assert.equal(left.body.attachments[0].id, second.body.attachment.id);
+  });
+});
