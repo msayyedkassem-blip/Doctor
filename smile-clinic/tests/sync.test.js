@@ -573,6 +573,70 @@ describe('two devices', () => {
     assert.equal(q.get("SELECT COUNT(*) AS n FROM attachments WHERE caption LIKE 'Big %'").n, 5);
   });
 
+  test('the store cupboard and a prescription cross too', async () => {
+    setDriver(devices.get('phone'));
+    const now = new Date().toISOString();
+    const patient = q.get("SELECT id, uuid FROM patients WHERE last_name = 'حسن'");
+    const patientUuid = patient.uuid;
+
+    // A material, and the delivery that put it on the shelf. The movement
+    // points at the item by a local id that means nothing on the clinic
+    // computer, so this is the reference-translation path, not just a row copy.
+    const itemId = insert('stock_items', {
+      name: 'Composite A2', category: 'Restorative', unit: 'syringe',
+      quantity: 6, min_quantity: 2, unit_cost_cents: 1800,
+      created_at: now, updated_at: now,
+    });
+    insert('stock_moves', {
+      item_id: itemId, change: 6, reason: 'received', note: 'From the depot',
+      created_at: now,
+    });
+
+    // A medicine, a prescription, and a line joining the two — three tables
+    // deep, which is as far as any reference in the app reaches.
+    const medicineId = insert('medicines', {
+      name: 'Amoxicillin', name_ar: 'أموكسيسيلين', category: 'Antibiotic',
+      form: 'capsule', strength: '500 mg', dose: '1 capsule',
+      frequency: 'three times a day', duration: '5 days',
+      created_at: now, updated_at: now,
+    });
+    const prescriptionId = insert('prescriptions', {
+      patient_id: patient.id, issued_on: now.slice(0, 10),
+      notes: 'After the extraction', created_at: now, updated_at: now,
+    });
+    insert('prescription_items', {
+      prescription_id: prescriptionId, medicine_id: medicineId,
+      name: 'Amoxicillin', form: 'capsule', strength: '500 mg',
+      dose: '1 capsule', frequency: 'three times a day', duration: '5 days',
+      created_at: now, updated_at: now,
+    });
+
+    await runSync({ fetchImpl: bridgedFetch });
+
+    setDriver(devices.get('server'));
+    const item = q.get("SELECT * FROM stock_items WHERE name = 'Composite A2'");
+    assert.ok(item, 'the material never reached the clinic computer');
+    assert.equal(item.quantity, 6);
+    const move = q.get("SELECT * FROM stock_moves WHERE note = 'From the depot'");
+    assert.ok(move, 'the delivery never arrived');
+    assert.equal(move.item_id, item.id, 'the movement should point at the item here');
+
+    const medicine = q.get("SELECT * FROM medicines WHERE name = 'Amoxicillin'");
+    assert.ok(medicine, 'the medicine never arrived');
+    assert.equal(medicine.name_ar, 'أموكسيسيلين', 'the Arabic name arrived intact');
+    const prescription = q.get("SELECT * FROM prescriptions WHERE notes = 'After the extraction'");
+    assert.ok(prescription, 'the prescription never arrived');
+    assert.equal(
+      q.get('SELECT uuid FROM patients WHERE id = ?', prescription.patient_id)?.uuid,
+      patientUuid, 'the prescription should point at the same person here');
+    const line = q.get('SELECT * FROM prescription_items WHERE prescription_id = ?',
+      prescription.id);
+    assert.ok(line, 'the prescribed medicine never arrived');
+    assert.equal(line.medicine_id, medicine.id,
+      'the line should point at the medicine as this device numbers it');
+    assert.equal(line.dose, '1 capsule');
+  });
+
   test('the summary reports a healthy connection', async () => {
     setDriver(devices.get('phone'));
     const summary = syncSummary();

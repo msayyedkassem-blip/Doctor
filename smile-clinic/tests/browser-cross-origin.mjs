@@ -151,6 +151,31 @@ if (toastOrError.ok) {
   note(rows > 10, `phone: clinic patients arrived (${rows} rows on the first page)`);
   await phone.screenshot({ path: `${OUT}/04-phone-patients.png`, fullPage: true });
 
+  // The cupboard and the medicine list are clinic-wide rather than per-patient,
+  // and they were the last tables added to sync — so count them through the
+  // phone's own database rather than trusting the record total.
+  const carried = await phone.evaluate(async () => {
+    const { localRequest } = await import('/js/local/client.js');
+    const [stockRes, medicineRes] = await Promise.all([
+      localRequest('GET', '/api/stock'),
+      localRequest('GET', '/api/medicines'),
+    ]);
+    const stock = await stockRes.json();
+    const medicines = await medicineRes.json();
+    return {
+      stock: stock?.items?.length || 0,
+      medicines: medicines?.medicines?.length || 0,
+    };
+  }).catch((e) => ({ error: e.message }));
+  note(carried.stock > 0 && carried.medicines > 0,
+    `phone: the store cupboard and medicine list came across (${JSON.stringify(carried)})`);
+
+  await phoneNav('stock');
+  await phone.waitForSelector('tbody tr', { timeout: 20000 }).catch(() => {});
+  const stockRows = await phone.$$eval('tbody tr', (r) => r.length).catch(() => 0);
+  note(stockRows > 0, `phone: the store screen lists materials (${stockRows} rows)`);
+  await phone.screenshot({ path: `${OUT}/06-phone-stock.png`, fullPage: true });
+
   await clinic.reload({ waitUntil: 'networkidle' });
   await clinic.click('[data-nav="patients"]');
   await clinic.waitForSelector('input[type="search"], input[name="q"]', { timeout: 15000 });
