@@ -197,6 +197,33 @@ generated password to the terminal, once:
 
 Change it under the `⋯` menu next to your name in the sidebar.
 
+### On Windows
+
+Windows has no terminal habit to fall back on, so the zip carries three files
+you double-click instead. Install [Node.js](https://nodejs.org) first — the LTS
+button, then click through the installer — and unzip the app somewhere that is
+not inside a zip file: `Documents\Smile Clinic` is a good place, the Downloads
+folder is not, because Windows runs files there from a temporary copy.
+
+Then, in the `windows` folder:
+
+| Double-click | What it does |
+| --- | --- |
+| **Start Smile Clinic** | Starts the clinic and opens it in the browser. If it is already running it just opens it. |
+| **Run at startup** | Starts the clinic by itself every time the computer is switched on. |
+| **Stop running at startup** | Undoes the above. The app itself is untouched. |
+
+If the window opens and closes with nothing in it, Node.js is not installed —
+"Start Smile Clinic" says so and waits, as long as you are running it from the
+`windows` folder rather than from inside the zip.
+
+The address other devices should type is printed when the clinic starts, and is
+also under **Settings → Devices**. On Windows this matters more than on a Mac:
+a PC with WSL, Docker, VirtualBox or VMware carries several extra network
+adapters, all of which hand out plausible-looking `192.168.x` addresses that no
+phone can reach. The app does not offer those — it shows only the real Wi-Fi or
+Ethernet address.
+
 ### Try it with demo data first
 
 ```bash
@@ -281,6 +308,10 @@ That registers the app with macOS's own service manager. From then on it:
 - and prints the address your phones should use.
 
 To stop it starting automatically: `./scripts/install-mac.sh remove`.
+
+On Windows, double-click **Run at startup** in the `windows` folder — it puts a
+shortcut in the Startup folder and nothing else, which is why **Stop running at
+startup** can undo it completely.
 
 Logs go to `logs/clinic.log` and `logs/clinic.error.log` if you ever need to see
 what happened. On Linux, use the systemd unit under
@@ -540,6 +571,36 @@ reaches the clinic anyway, the clinic keeps its number and the arriving record
 is moved to a free one; Settings says how many were moved, so anything already
 written on paper can be checked.
 
+### Which device should be the clinic
+
+One device has to be the one the others join. It is whichever one is **switched
+on and on the clinic Wi-Fi when anybody wants to sync** — that is the only
+requirement, and it is the reason a computer is usually the right answer rather
+than a phone.
+
+| If the clinic is… | Join to | Why |
+| --- | --- | --- |
+| A computer left on at the desk | That computer | Always reachable, and it can be backed up to a USB stick |
+| A phone that lives at the clinic | That phone | Fine for one dentist with a tablet as well |
+| Two phones that are rarely in the same place | Neither — see below | There is nothing for them to join to |
+
+**A phone cannot be joined to.** The Android app holds a full clinic and works
+offline, but it does not listen for other devices: a phone's address changes
+whenever it reconnects to Wi-Fi, and Android stops background listeners to save
+battery. So "sync my phone with the clinic phone" means one of these:
+
+- **Run the clinic on a computer.** Install the zip on a Windows PC or a Mac at
+  the clinic, join both phones to it, and the two phones agree through it. They
+  do not need to be on at the same time — each one syncs when it is next on the
+  clinic Wi-Fi.
+- **Use one phone and share the screen.** If there is genuinely only one phone's
+  worth of work, a second device can simply open the first one's address in a
+  browser while on the same Wi-Fi — it is the same clinic, not a second copy.
+
+Every device must be on the **same Wi-Fi** to sync. Nothing goes over the
+internet, which is also why nothing can be synced from home — that is a
+deliberate limit, not a missing feature.
+
 ### What happens when two people change the same thing
 
 - **Different records — the normal case.** Two payments on one invoice, taken on
@@ -733,6 +794,9 @@ server/
     money.js          integer-cent arithmetic and invoice totals
     messaging.js      template rendering, phone normalising, WhatsApp sending
     network.js        finds the address other devices can reach this machine on
+    assistant.js      the front desk assistant: prompt, refusals, redaction
+    dental-formulary.js  the starter list of dental medicines
+    licence.js        signed licence keys; licence-state.js reads the stored one
     sync-schema.js    what syncs, and how the tables point at each other
     sync-core.js      turning rows into something another device understands
     sync-client.js    the device half: send what changed, take what changed
@@ -749,22 +813,36 @@ public/
     api.js            fetch wrapper
     ui.js             DOM helpers, formatting, modals, tables
     app.js            router and shell
+    local/            the whole server again, compiled to run inside the phone
     views/            one module per screen
+      tooth.js        draws a tooth from its FDI number, pulp and all
+      images.js       x-rays and photographs
+      stock.js        the store cupboard
+      documents.js    prescriptions and the printable patient record
 android/              the Android app (no Gradle, no AndroidX)
   build.sh            aapt2 -> javac -> d8 -> zipalign -> apksigner
   dist/               the signed APK
+windows/              double-click files for a Windows PC
+  Start Smile Clinic.cmd, Run at startup.cmd, Stop running at startup.cmd
 scripts/
   backup.js           consistent online backup, with rotation
   address.js          prints the address phones should use
+  build-local.js      copies the server into public/ for the in-phone copy
   find-installs.js    finds every copy and says which holds real records
+  running.js          is the clinic up, and stopping it — on any platform
   tidy-up.js          consolidates them into one, backing up first
   install-mac.sh      auto-start on macOS via launchd
+  licence.js          minting and checking licence keys
 tests/
   unit.test.js        money, validation, permissions, scheduling maths
+  tooth.test.js       the tooth drawings, including the root-canal marking
   messaging.test.js   template rendering and phone normalisation
   network.test.js     address detection across platforms and edge cases
+  assistant.test.js   the front desk assistant, with the model stubbed out
+  licence.test.js     signing, expiry, device limits, tampering
   sync.test.js        two real databases, edited apart, made to agree
   api.test.js         end-to-end tests over real HTTP
+  browser-*.mjs       Playwright: the app in a real browser, and across origins
 ```
 
 The frontend is vanilla ES modules — **no framework, no bundler, no build step**.

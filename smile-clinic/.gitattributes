@@ -1,0 +1,9 @@
+# Normalise to LF in the repository; a shell script keeps working on a Mac.
+* text=auto eol=lf
+
+# Windows batch files are the exception: they must arrive with CRLF endings.
+# A .cmd file with Unix line endings fails in a way that looks like nothing at
+# all — the window opens and closes again, with no error to read. The last
+# matching rule wins, so these two lines must stay below the one above.
+*.cmd text eol=crlf
+*.bat text eol=crlf

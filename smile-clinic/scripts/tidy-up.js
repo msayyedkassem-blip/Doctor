@@ -18,6 +18,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync, backup } from 'node:sqlite';
 import { findInstalls, describe, bestInstall } from './find-installs.js';
+import { stopRunning, waitForHealth } from './running.js';
 
 const HERE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HOME = os.homedir();
@@ -74,24 +75,14 @@ if (keep && keep.demo) {
 // Node reads its files once, at startup. Copying new ones under a clinic that
 // is already running changes nothing on screen, which is exactly what "I
 // replaced the files and it looks the same" is.
-function stopRunning() {
-  let stopped = false;
+if (process.platform === 'darwin') {
+  // A login item would restart the old copy the moment it is killed.
   try {
     execFileSync('launchctl', ['bootout', `gui/${process.getuid()}/com.smileclinic.server`],
       { stdio: 'pipe' });
-    stopped = true;
   } catch { /* not installed as a service, or not running */ }
-  try {
-    const pids = execFileSync('lsof', ['-ti', `tcp:${process.env.PORT || 4000}`], { stdio: 'pipe' })
-      .toString().trim().split('\n').filter(Boolean);
-    for (const pid of pids) {
-      try { process.kill(Number(pid)); stopped = true; } catch { /* already gone */ }
-    }
-  } catch { /* nothing listening */ }
-  return stopped;
 }
-
-if (stopRunning()) say('  Stopped the clinic that was already running.');
+if (await stopRunning()) say('  Stopped the clinic that was already running.');
 
 // ---- 5. assemble one tidy copy ---------------------------------------------
 if (path.resolve(TARGET) === path.resolve(HERE)) {
@@ -120,10 +111,9 @@ if (path.resolve(TARGET) === path.resolve(HERE)) {
 say();
 
 // ---- 6. make it open by itself ---------------------------------------------
-const launcher = path.join(HOME, 'Desktop', 'Smile Clinic.command');
 // Double-clicking this is how the clinic gets opened from now on, so it has to
 // say what is wrong rather than flash a window and disappear.
-const launcherScript = `#!/bin/bash
+const macLauncher = `#!/bin/bash
 cd "${TARGET}" || {
   echo "The clinic folder has moved or been deleted:"
   echo "  ${TARGET}"
@@ -156,10 +146,24 @@ else
   read -n 1 -s -p "Press any key to close."
 fi
 `;
+
+// On Windows the Desktop file is a one-line hand-off to the real launcher in
+// windows/, so there is only one script to fix if it ever needs fixing. CRLF
+// because a .cmd file with Unix line endings closes without a word.
+const windowsLauncher = [
+  '@echo off',
+  `cd /d "${TARGET}" || exit /b 1`,
+  'call "windows\\Start Smile Clinic.cmd"',
+  '',
+].join('\r\n');
+
+const onWindows = process.platform === 'win32';
+const launcher = path.join(
+  HOME, 'Desktop', onWindows ? 'Smile Clinic.cmd' : 'Smile Clinic.command');
 try {
   fs.mkdirSync(path.dirname(launcher), { recursive: true });
-  fs.writeFileSync(launcher, launcherScript);
-  fs.chmodSync(launcher, 0o755);
+  fs.writeFileSync(launcher, onWindows ? windowsLauncher : macLauncher);
+  if (!onWindows) fs.chmodSync(launcher, 0o755);
   say(`  Created a double-click launcher: ${pretty(launcher)}`);
 } catch (err) {
   // Not worth stopping for: the app still starts by itself, and stopping here
@@ -177,20 +181,17 @@ if (process.platform === 'darwin') {
     say(`  Could not set it to start automatically: ${String(err.message).split('\n')[0]}`);
     say('  The launcher on your Desktop still works.');
   }
+} else if (onWindows) {
+  // Not done without being asked: putting something in a person's Startup
+  // folder behind their back is not ours to decide.
+  say('  To have it start by itself, double-click "Run at startup" in the');
+  say(`  windows folder inside ${pretty(TARGET)}.`);
 }
 
 // ---- 7. prove the new one is the one running --------------------------------
 const expected = JSON.parse(
   fs.readFileSync(path.join(TARGET, 'package.json'), 'utf8')).version;
-let running = null;
-for (let attempt = 0; attempt < 10 && !running; attempt += 1) {
-  try {
-    const res = await fetch(`http://127.0.0.1:${process.env.PORT || 4000}/api/health`);
-    running = (await res.json()).version;
-  } catch {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-}
+const running = await waitForHealth(Number(process.env.PORT || 4000), 10);
 say();
 if (running === expected) {
   say(`  Running version ${running}. The app shows it in the bottom-left corner,`);

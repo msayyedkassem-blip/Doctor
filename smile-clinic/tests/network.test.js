@@ -33,6 +33,34 @@ describe('finding the address a phone should use', () => {
     assert.equal(result.addresses.length, 1);
   });
 
+  test('a Windows PC is not told to hand out its WSL or VirtualBox address', () => {
+    // Exactly what a developer's laptop looks like, and the reason the brother
+    // typing the first address he was shown could not reach the clinic.
+    const result = withInterfaces({
+      'Loopback Pseudo-Interface 1': [{ address: '127.0.0.1', family: 'IPv4', internal: true }],
+      'vEthernet (WSL (Hyper-V firewall))': [ipv4('172.28.64.1')],
+      'vEthernet (Default Switch)': [ipv4('192.168.137.1')],
+      'VirtualBox Host-Only Network': [ipv4('192.168.56.1')],
+      'VMware Network Adapter VMnet8': [ipv4('192.168.198.1')],
+      'Bluetooth Network Connection': [ipv4('169.254.3.4')],
+      'Wi-Fi': [ipv4('192.168.1.121')],
+    }, () => localAddresses('4000'));
+
+    assert.equal(result.addresses.length, 1, 'only the real Wi-Fi address is usable');
+    assert.equal(result.addresses[0].url, 'http://192.168.1.121:4000');
+    assert.equal(result.addresses[0].label, 'Wi-Fi');
+    assert.equal(result.rejected.filter((r) => r.why === 'virtual interface').length, 5);
+  });
+
+  test('a Windows PC on a cable still gets an answer', () => {
+    const result = withInterfaces({
+      'vEthernet (WSL)': [ipv4('172.28.64.1')],
+      Ethernet: [ipv4('10.0.0.25')],
+    }, () => localAddresses('4000'));
+    assert.equal(result.addresses.length, 1);
+    assert.equal(result.addresses[0].address, '10.0.0.25');
+  });
+
   test('VPN, AirDrop and bridge interfaces are not offered', () => {
     const result = withInterfaces({
       lo0: [{ address: '127.0.0.1', family: 'IPv4', internal: true }],

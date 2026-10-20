@@ -59,7 +59,17 @@ const ALWAYS_ALLOWED = new Set([
 ]);
 
 router.get('/api/health', async (ctx) => {
-  json(ctx.res, 200, { ok: true, version: VERSION, time: new Date().toISOString() });
+  // The process id goes only to something running on this same computer. It is
+  // how a launcher stops the clinic it just found: Windows has no lsof, and
+  // guessing from netstat output picks the wrong process often enough to
+  // matter. A phone on the clinic Wi-Fi has no use for it and does not get it.
+  const local = /^(::1|::ffff:127\.|127\.)/.test(ctx.req.socket.remoteAddress || '');
+  json(ctx.res, 200, {
+    ok: true,
+    version: VERSION,
+    time: new Date().toISOString(),
+    ...(local ? { pid: process.pid } : {}),
+  });
 }, { public: true });
 
 export async function handle(req, res) {
