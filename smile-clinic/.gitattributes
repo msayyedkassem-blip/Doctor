@@ -3,7 +3,12 @@
 
 # Windows batch files are the exception: they must arrive with CRLF endings.
 # A .cmd file with Unix line endings fails in a way that looks like nothing at
-# all — the window opens and closes again, with no error to read. The last
-# matching rule wins, so these two lines must stay below the one above.
-*.cmd text eol=crlf
-*.bat text eol=crlf
+# all — the window opens and closes again, with no error to read.
+#
+# They are stored with real CRLF bytes and marked -text so that git never
+# converts them in either direction. `eol=crlf` alone would not be enough:
+# it is applied on checkout, and `git archive` — which is how the delivery
+# zip is built — ignores it entirely and would ship Unix endings.
+# The last matching rule wins, so these two lines stay below the one above.
+*.cmd -text
+*.bat -text

@@ -1,5 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 import { lineTotal, invoiceTotals, taxOn, sumCents, netPaid, statusFromBalance } from '../server/lib/money.js';
 import { hashPassword, verifyPassword, needsRehash, can, permissionsFor } from '../server/lib/auth.js';
@@ -228,4 +229,30 @@ describe('router', () => {
     assert.ok(router.match('POST', '/api/patients'));
     assert.throws(() => router.match('DELETE', '/api/patients/42'), /not allowed/);
   });
+});
+
+/**
+ * The Windows launchers only work if they arrive with CRLF line endings, and
+ * the way they stop working is the worst kind: the window opens, closes again,
+ * and says nothing at all. Git's `eol=crlf` is not enough on its own — it is
+ * applied on checkout, and `git archive`, which builds the delivery zip,
+ * ignores it — so the bytes in the repository are the thing to check.
+ */
+describe('the Windows launchers', () => {
+  const dir = new URL('../windows/', import.meta.url);
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => f.endsWith('.cmd')) : [];
+
+  test('there are launchers to check', () => {
+    assert.ok(files.length >= 3, 'the windows folder should hold the .cmd launchers');
+  });
+
+  for (const name of files) {
+    test(`${name} has Windows line endings`, () => {
+      const text = fs.readFileSync(new URL(name, dir), 'utf8');
+      const lines = text.split('\n').slice(0, -1);
+      const unterminated = lines.filter((line) => !line.endsWith('\r'));
+      assert.equal(unterminated.length, 0,
+        `${unterminated.length} line(s) end with a bare newline: ${unterminated[0]}`);
+    });
+  }
 });
