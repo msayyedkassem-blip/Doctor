@@ -16,3 +16,10 @@ android/assets/
 # that will mint codes. Shipping one whose private half lives somewhere else
 # would lock a clinic out with no way back, so it is never committed.
 server/licence-public.txt
+
+# The repository this app sits in ignores "lib/" — a rule from a Python
+# packaging template, which silently swallowed the whole backend: every
+# module under server/lib was missing from the zip, and the app would not
+# start. Un-ignore the two that are ours.
+!server/lib/
+!public/shared/lib/
