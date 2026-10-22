@@ -15,12 +15,22 @@ import {
 } from './sync-schema.js';
 
 const columnCache = new Map();
+const nullableCache = new Map();
 
 function columnsOf(table) {
   if (!columnCache.has(table)) {
     columnCache.set(table, q.all(`PRAGMA table_info(${table})`).map((c) => c.name));
   }
   return columnCache.get(table);
+}
+
+/** Columns the table itself says may be empty. */
+function nullableColumns(table) {
+  if (!nullableCache.has(table)) {
+    nullableCache.set(table, new Set(q.all(`PRAGMA table_info(${table})`)
+      .filter((c) => !c.notnull).map((c) => c.name)));
+  }
+  return nullableCache.get(table);
 }
 
 /** Runs `fn` with change-recording turned off, so applying is not mistaken for editing. */
@@ -79,6 +89,15 @@ export function applyChange(change, options = {}) {
     const parentRow = q.get(
       `SELECT id FROM ${parent} WHERE uuid = ?`, canonicalUuid(parent, parentUuid));
     if (!parentRow) {
+      // Last resort, once retrying has stopped helping: a reference the table
+      // allows to be empty is emptied, and the record is kept. A payment with
+      // nobody's name against it is worth far more than no payment, and the
+      // alternative is a record that exists on one device and nowhere else.
+      if (options.orphans === 'null' && nullableColumns(table).has(column)) {
+        data[column] = null;
+        options.orphaned?.push({ table, uuid, column, parent });
+        continue;
+      }
       // The row it points at has not arrived yet; the caller retries later.
       return { status: 'deferred', reason: `waiting for ${parent} ${parentUuid.slice(0, 8)}` };
     }
@@ -330,11 +349,14 @@ export function stampLocalNumbers() {
 export function applyChanges(changes, {
   reportDeferred = true, preferLocal = false, letter = '',
 } = {}) {
-  const result = { applied: 0, deleted: 0, conflicts: [], deferred: [], renumbered: [] };
+  const result = {
+    applied: 0, deleted: 0, conflicts: [], deferred: [], renumbered: [], orphaned: [],
+  };
   const options = {
     preferLocal,
     letter,
     renumbered: result.renumbered,
+    orphaned: result.orphaned,
     // A record that has to move takes the letter of whichever device made it,
     // so its new number reads like every other number that device issues.
     letterFor: (change) => (change.origin_device
@@ -365,6 +387,21 @@ export function applyChanges(changes, {
       if (stillPending.length === pending.length) break; // no progress; stop
       pending = stillPending;
     }
+
+    // Anything still waiting is waiting for something that is not coming. Keep
+    // the record and lose the reference, where the table allows it: a device
+    // used on its own names its own setup account on everything it recorded,
+    // and a clinic that has never heard of that account should still end up
+    // with the treatments and the money.
+    if (reportDeferred && pending.length) {
+      const lastChance = [];
+      for (const change of pending) {
+        const outcome = applyChange(change, { ...options, orphans: 'null' });
+        if (outcome.status === 'applied') result.applied += 1;
+        else lastChance.push(change);
+      }
+      pending = lastChance;
+    }
     result.deferred = pending;
   });
 
@@ -387,6 +424,13 @@ export function applyChanges(changes, {
       }))
       : []),
   ]);
+  recordIssues(result.orphaned.map((o) => ({
+    table_name: o.table,
+    row_uuid: o.uuid,
+    kind: 'incomplete',
+    reason: `kept, but its ${o.column.replace(/_id$/, '').replace(/_/g, ' ')} `
+      + `is not a ${o.parent.replace(/s$/, '')} this device knows`,
+  })));
   recordIssues(result.renumbered.map((move) => ({
     table_name: move.table,
     row_uuid: move.uuid,
@@ -543,7 +587,17 @@ export function deviceCode() {
  * shares the obvious email, so left alone it would be merged with the clinic's
  * real administrator — and since merging takes the later edit, a phone joining
  * a clinic would silently overwrite the real administrator's password with
- * "changeme". It is renamed out of the way and never sent.
+ * "changeme". So it is renamed out of the way and deactivated.
+ *
+ * It is then **sent anyway**, as a dead row nobody can sign in to. It used to
+ * be withheld, on the reasoning that the clinic has no use for another
+ * device's setup account — but a device used on its own for a fortnight has
+ * that account's name on every appointment, treatment, invoice, payment,
+ * x-ray and prescription it recorded. Withholding it left all of those
+ * pointing at somebody the clinic had never heard of, and a reference that
+ * cannot be resolved is not applied: the patient arrived and their entire
+ * history did not. One inactive row called "Setup account" is a very small
+ * price, and it is also the truth about who entered those records.
  */
 export function retireProvisionalAdmin() {
   const state = syncState();
@@ -557,15 +611,12 @@ export function retireProvisionalAdmin() {
   }
 
   const code = state.device_code || 'local';
-  whileApplying(() => {
-    q.run(
-      `UPDATE users SET email = ?, name = ?, active = 0, updated_at = ? WHERE id = ?`,
-      `setup-${code}@device.local`, 'Setup account (this device)',
-      new Date().toISOString(), user.id,
-    );
-  });
-  // Never send it: the clinic has no use for another device's setup account.
-  q.run('DELETE FROM sync_outbox WHERE table_name = ? AND row_uuid = ?', 'users', uuid);
+  // Recorded as an ordinary edit, so the renamed, deactivated row travels.
+  q.run(
+    `UPDATE users SET email = ?, name = ?, active = 0, updated_at = ? WHERE id = ?`,
+    `setup-${code}@device.local`, `Setup account (${code || 'this device'})`,
+    new Date().toISOString(), user.id,
+  );
   saveSyncState({ provisional_user_uuid: '' });
   return true;
 }

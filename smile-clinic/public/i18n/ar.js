@@ -383,6 +383,15 @@ export const AR = {
   '{n} KB': '{n} كيلوبايت',
   '↓ Save a backup file': '↓ حفظ نسخة احتياطية',
   'Backup saved': 'تم حفظ النسخة الاحتياطية',
+  '↑ Restore a backup file': '↑ استعادة نسخة احتياطية',
+  'Restore this backup?': 'استعادة هذه النسخة الاحتياطية؟',
+  'Everything on this device is replaced by "{name}". Anything recorded here since that file was saved is lost, and you will be signed out.':
+    'سيُستبدل كل ما على هذا الجهاز بالملف "{name}". كل ما سُجِّل هنا بعد حفظ ذلك الملف سيضيع، وسيتم تسجيل خروجك.',
+  'Replace everything': 'استبدال كل شيء',
+  'Restored {n} patient(s). Please sign in again.':
+    'تمت استعادة {n} مريض. الرجاء تسجيل الدخول من جديد.',
+  'Save the file somewhere that is not this device — send it to yourself on WhatsApp or email, or copy it to a computer. A backup kept only on the phone goes when the phone does.':
+    'احفظ الملف في مكان غير هذا الجهاز — أرسله لنفسك على واتساب أو البريد، أو انسخه إلى حاسوب. النسخة الاحتياطية المحفوظة على الهاتف وحده تضيع بضياعه.',
   '⚠ Back this up. If the device is lost or reset, records only here are gone.':
     '⚠ احتفظ بنسخة احتياطية. إذا فُقد الجهاز أو أُعيد ضبطه، تضيع السجلات الموجودة هنا وحدها.',
   'This device holds its own copy of the records and works with no Wi-Fi and no clinic computer. Records created here stay here until syncing is set up, so another phone will not see them yet.':

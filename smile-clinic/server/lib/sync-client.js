@@ -184,6 +184,8 @@ export function syncSummary() {
       "SELECT COUNT(*) AS n FROM sync_issues WHERE resolved = 0 AND kind = 'blocked'").n,
     renumbered: q.get(
       "SELECT COUNT(*) AS n FROM sync_issues WHERE resolved = 0 AND kind = 'renumbered'").n,
+    incomplete: q.get(
+      "SELECT COUNT(*) AS n FROM sync_issues WHERE resolved = 0 AND kind = 'incomplete'").n,
   };
 }
 

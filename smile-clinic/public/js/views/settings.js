@@ -1036,7 +1036,48 @@ async function storageCard() {
     }
 
     body.push(el('p', { class: 'alert-chip', text: t('⚠ Back this up. If the device is lost or reset, records only here are gone.') }));
+    body.push(el('p', { class: 'small muted', text: t('Save the file somewhere that is not this device — send it to yourself on '
+      + 'WhatsApp or email, or copy it to a computer. A backup kept only on the '
+      + 'phone goes when the phone does.') }));
+
+    // Restoring replaces everything, so it is a file picker the person has to
+    // choose a file in, plus a confirmation, rather than a single button.
+    const picker = el('input', {
+      type: 'file', accept: '.db,application/x-sqlite3,application/octet-stream',
+      style: { display: 'none' },
+      onChange: async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        confirmDialog({
+          title: t('Restore this backup?'),
+          message: t('Everything on this device is replaced by "{name}". Anything '
+            + 'recorded here since that file was saved is lost, and you will be '
+            + 'signed out.', { name: file.name }),
+          confirmLabel: t('Replace everything'),
+          danger: true,
+          onConfirm: async () => {
+            try {
+              const { importLocalDatabase } = await import('../local/client.js');
+              const bytes = new Uint8Array(await file.arrayBuffer());
+              const result = await importLocalDatabase(bytes);
+              toast(t('Restored {n} patient(s). Please sign in again.',
+                { n: result.patients }), 'success');
+              setTimeout(() => window.location.reload(), 1200);
+            } catch (err) {
+              toast(err.message, 'error');
+            }
+          },
+        });
+      },
+    });
+
+    body.push(picker);
     body.push(el('div', { class: 'row mt' }, [
+      el('button', {
+        class: 'btn', type: 'button', text: t('↑ Restore a backup file'),
+        onClick: () => picker.click(),
+      }),
       el('button', {
         class: 'btn btn-primary', type: 'button', text: t('↓ Save a backup file'),
         onClick: async (event) => {
@@ -1183,6 +1224,12 @@ async function syncCard() {
         `${summary.renumbered} record(s) were given a new file or invoice number, `
         + 'because the clinic had already given that number to someone else. '
         + 'Nothing was lost \u2014 check anything already written on paper.' }));
+    }
+    if (summary.incomplete) {
+      body.push(el('p', { class: 'small muted', text:
+        `${summary.incomplete} record(s) arrived without the name of whoever `
+        + 'entered them, because that account is not one this clinic has. The '
+        + 'records themselves are complete.' }));
     }
 
     body.push(el('div', { class: 'row mt' }, [

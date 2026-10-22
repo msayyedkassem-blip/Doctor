@@ -20,7 +20,7 @@ import { installNodeCrypto } from '../server/lib/crypto-node.js';
 import { hashPassword } from '../server/lib/crypto.js';
 import { runSync, registerDevice, syncSummary } from '../server/lib/sync-client.js';
 import {
-  retireProvisionalAdmin, canonicalUuid, stampLocalNumbers,
+  retireProvisionalAdmin, canonicalUuid, stampLocalNumbers, applyChanges,
 } from '../server/lib/sync-core.js';
 import {
   packPayload, composeKey, setLicencePublicKey,
@@ -426,10 +426,16 @@ describe('two devices', () => {
     const after = q.get('SELECT email, active FROM users WHERE uuid = ?', placeholder);
     assert.match(after.email, /@device\.local$/, 'it kept an address that could collide');
     assert.equal(after.active, 0, 'it should not be an active sign-in');
-    // And it must never travel to the clinic.
-    assert.equal(q.get(
+    // It does travel — everything the device recorded alone names it, and a
+    // reference the clinic cannot resolve costs the whole record. What keeps
+    // it from becoming the administrator is the rename and active = 0 above,
+    // not withholding it.
+    // The outbox is append-only and deduplicated when it is collected, so the
+    // insert and the rename both sit there; what matters is that one of them
+    // still does.
+    assert.ok(q.get(
       "SELECT COUNT(*) AS n FROM sync_outbox WHERE table_name = 'users' AND row_uuid = ?",
-      placeholder).n, 0);
+      placeholder).n >= 1, 'the renamed, dead account should be sent');
     assert.equal(q.get('SELECT provisional_user_uuid FROM sync_state WHERE id = 1')
       .provisional_user_uuid, '');
   });
@@ -800,3 +806,278 @@ describe('numbers two devices both invented', () => {
       q.get("SELECT COUNT(*) AS n FROM sync_issues WHERE kind = 'renumbered'").n >= 0, true);
   });
 });
+
+/**
+ * A tablet used on its own for weeks, then joined to a clinic computer set up
+ * afterwards. This is not a hypothetical: it is what happens when somebody
+ * installs the app on a phone first and the computer later, and everything
+ * they entered in between has to survive the join.
+ *
+ * A standalone device invents a sign-in for itself before any real staff
+ * exist, and every record it writes names that account. Joining stands the
+ * account down — so the question this answers is whether the records it
+ * created come across regardless.
+ */
+describe('a device used alone before the clinic existed', () => {
+  const pairCode = async (name) => {
+    setDriver(devices.get('server'));
+    // Earlier suites have synced devices carrying their own row for this
+    // email, and merging by email means the password here is no longer the
+    // one they set. Put a known one back rather than depend on that.
+    q.run('UPDATE users SET password_hash = ? WHERE email = ?',
+      await hashPassword('clinic12345'), 'admin@clinic.local');
+    const login = await fetch(`${base}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Clinic-Request': '1' },
+      body: JSON.stringify({ email: 'admin@clinic.local', password: 'clinic12345' }),
+    });
+    const cookie = login.headers.get('set-cookie');
+    if (!cookie) throw new Error(`login ${login.status}: ${await login.text()}`);
+    const token = /clinic_session=([^;]*)/.exec(cookie)[1];
+    const paired = await fetch(`${base}/api/sync/pair`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Clinic-Request': '1',
+        Cookie: `clinic_session=${token}`,
+      },
+      body: JSON.stringify({ name }),
+    });
+    const body = await paired.json();
+    if (!body.pairing_code) throw new Error(`pair ${paired.status}: ${JSON.stringify(body)}`);
+    return body.pairing_code;
+  };
+
+  let counts;
+
+  before(async () => {
+    makeDevice('tablet');
+    setDriver(devices.get('tablet'));
+    const now = new Date().toISOString();
+
+    // The sign-in the device invents for itself, exactly as the in-phone
+    // server does on first run.
+    const setupId = insert('users', {
+      name: 'Administrator', email: 'admin@clinic.local',
+      password_hash: await hashPassword('tablet12345'),
+      role: 'admin', color: '#111', active: 1, created_at: now, updated_at: now,
+    });
+    const setup = q.get('SELECT uuid FROM users WHERE id = ?', setupId);
+    q.run('UPDATE sync_state SET provisional_user_uuid = ? WHERE id = 1', setup.uuid);
+
+    // A fortnight of real work, every row of it naming that account.
+    const procedureId = insert('procedures', {
+      code: 'EXT-TAB', name: 'Extraction', category: 'Surgery',
+      default_price_cents: 5000, default_duration_min: 30, active: 1,
+      created_at: now, updated_at: now,
+    });
+    const patientId = insert('patients', {
+      code: 'P-0001', first_name: 'كريم', last_name: 'صعب', phone: '03111222',
+      archived: 0, created_at: now, updated_at: now,
+    });
+    const appointmentId = insert('appointments', {
+      patient_id: patientId, dentist_id: setupId, procedure_id: procedureId,
+      starts_at: '2026-03-02T09:00', ends_at: '2026-03-02T09:30',
+      status: 'completed', created_by: setupId, created_at: now, updated_at: now,
+    });
+    insert('tooth_chart', {
+      patient_id: patientId, tooth: 36, condition: 'root_canal', surfaces: 'O',
+      updated_by: setupId, updated_at: now,
+    });
+    const treatmentId = insert('treatments', {
+      patient_id: patientId, procedure_id: procedureId, appointment_id: appointmentId,
+      dentist_id: setupId, tooth: 36, status: 'completed', price_cents: 5000,
+      completed_at: now, created_at: now, updated_at: now,
+    });
+    const invoiceId = insert('invoices', {
+      patient_id: patientId, number: 'INV-T-0001', issued_at: now,
+      status: 'paid', subtotal_cents: 5000, total_cents: 5000, tax_cents: 0,
+      discount_cents: 0, created_by: setupId, created_at: now, updated_at: now,
+    });
+    insert('invoice_items', {
+      invoice_id: invoiceId, treatment_id: treatmentId, procedure_id: procedureId,
+      description: 'Extraction 36', tooth: 36, quantity: 1,
+      unit_price_cents: 5000, line_total_cents: 5000, position: 1,
+    });
+    insert('payments', {
+      patient_id: patientId, invoice_id: invoiceId, amount_cents: 5000,
+      method: 'cash', direction: 'in', paid_at: now, created_by: setupId,
+      created_at: now,
+    });
+    insert('expenses', {
+      category: 'Materials', description: 'Gloves (tablet)', amount_cents: 1200,
+      method: 'cash', spent_at: now, created_by: setupId, created_at: now,
+    });
+    insert('attachments', {
+      patient_id: patientId, kind: 'xray', caption: 'Periapical 36', tooth: 36,
+      taken_on: '2026-03-02', mime: 'image/jpeg', bytes: 40_000,
+      data: 'D'.repeat(50_000), created_by: setupId, created_at: now, updated_at: now,
+    });
+    const itemId = insert('stock_items', {
+      name: 'Lidocaine 2%', category: 'Anaesthetic', unit: 'cartridge',
+      quantity: 50, min_quantity: 10, created_at: now, updated_at: now,
+    });
+    insert('stock_moves', {
+      item_id: itemId, change: -2, reason: 'used', note: 'Extraction 36',
+      created_by: setupId, created_at: now,
+    });
+    const medicineId = insert('medicines', {
+      name: 'Ibuprofen', category: 'Analgesic', form: 'tablet', strength: '400 mg',
+      created_at: now, updated_at: now,
+    });
+    const prescriptionId = insert('prescriptions', {
+      patient_id: patientId, issued_on: '2026-03-02', notes: 'After the extraction',
+      created_by: setupId, created_at: now, updated_at: now,
+    });
+    insert('prescription_items', {
+      prescription_id: prescriptionId, medicine_id: medicineId, name: 'Ibuprofen',
+      form: 'tablet', strength: '400 mg', dose: '1 tablet',
+      created_at: now, updated_at: now,
+    });
+
+    counts = {
+      patients: q.get('SELECT COUNT(*) AS n FROM patients').n,
+      appointments: q.get('SELECT COUNT(*) AS n FROM appointments').n,
+      treatments: q.get('SELECT COUNT(*) AS n FROM treatments').n,
+      invoices: q.get('SELECT COUNT(*) AS n FROM invoices').n,
+      payments: q.get('SELECT COUNT(*) AS n FROM payments').n,
+      expenses: q.get('SELECT COUNT(*) AS n FROM expenses').n,
+      attachments: q.get('SELECT COUNT(*) AS n FROM attachments').n,
+      prescriptions: q.get('SELECT COUNT(*) AS n FROM prescriptions').n,
+      stock_moves: q.get('SELECT COUNT(*) AS n FROM stock_moves').n,
+      tooth_chart: q.get('SELECT COUNT(*) AS n FROM tooth_chart').n,
+    };
+
+    // The join, exactly as the phone performs it.
+    const code = await pairCode('Brother tablet');
+    setDriver(devices.get('tablet'));
+    // Every request must be served by the clinic's database and then hand
+    // control back to the tablet's — this device, not the phone above.
+    const asTablet = bridgedFetchFor('tablet');
+    await registerDevice({
+      fetchImpl: asTablet, serverUrl: base, name: 'Brother tablet', pairingCode: code,
+    });
+    // Twice: the first exchange sends, the second proves nothing is left over.
+    await runSync({ fetchImpl: asTablet });
+    await runSync({ fetchImpl: asTablet });
+  });
+
+  test('nothing it recorded alone is left behind', () => {
+    setDriver(devices.get('tablet'));
+    const issues = q.all('SELECT table_name, reason FROM sync_issues WHERE resolved = 0');
+    const stranded = issues.filter((i) => /never arrived/.test(i.reason));
+    assert.deepEqual(stranded, [], 'records were rejected for pointing at a missing row');
+  });
+
+  test('every kind of record reached the clinic', () => {
+    setDriver(devices.get('server'));
+    const patient = q.get("SELECT id FROM patients WHERE last_name = 'صعب'");
+    assert.ok(patient, 'the patient never arrived');
+
+    const checks = {
+      appointments: "SELECT COUNT(*) AS n FROM appointments WHERE patient_id = ?",
+      treatments: "SELECT COUNT(*) AS n FROM treatments WHERE patient_id = ?",
+      invoices: "SELECT COUNT(*) AS n FROM invoices WHERE patient_id = ?",
+      payments: "SELECT COUNT(*) AS n FROM payments WHERE patient_id = ?",
+      attachments: "SELECT COUNT(*) AS n FROM attachments WHERE patient_id = ?",
+      prescriptions: "SELECT COUNT(*) AS n FROM prescriptions WHERE patient_id = ?",
+      tooth_chart: "SELECT COUNT(*) AS n FROM tooth_chart WHERE patient_id = ?",
+    };
+    const missing = [];
+    for (const [table, sql] of Object.entries(checks)) {
+      if (q.get(sql, patient.id).n === 0) missing.push(table);
+    }
+    assert.deepEqual(missing, [], `these never arrived: ${missing.join(', ')}`);
+
+    assert.ok(q.get("SELECT id FROM expenses WHERE description = 'Gloves (tablet)'"),
+      'the expense never arrived');
+    assert.ok(q.get("SELECT id FROM stock_moves WHERE note = 'Extraction 36'"),
+      'the stock movement never arrived');
+    assert.ok(q.get("SELECT id FROM prescription_items WHERE name = 'Ibuprofen'"),
+      'the prescribed medicine never arrived');
+  });
+
+  test('the money still adds up on the clinic computer', () => {
+    setDriver(devices.get('server'));
+    const invoice = q.get("SELECT * FROM invoices WHERE number LIKE 'INV-T-%'");
+    assert.ok(invoice, 'the invoice never arrived');
+    const paid = q.get(
+      'SELECT COALESCE(SUM(amount_cents), 0) AS n FROM payments WHERE invoice_id = ?',
+      invoice.id).n;
+    assert.equal(paid, 5000, 'the payment did not land against its invoice');
+  });
+
+  test("the clinic administrator's password survives the join", async () => {
+    // The tablet's own setup account used admin@clinic.local, the same address
+    // as the clinic's real administrator, and staff rows merge by email. If the
+    // rename were ever dropped, this is the test that would catch it: the
+    // clinic's password would silently become the tablet's.
+    setDriver(devices.get('server'));
+    const login = await fetch(`${base}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Clinic-Request': '1' },
+      body: JSON.stringify({ email: 'admin@clinic.local', password: 'clinic12345' }),
+    });
+    assert.equal(login.status, 200, 'the clinic administrator can no longer sign in');
+
+    // And the tablet's account is here, dead, under its own address.
+    const setup = q.get("SELECT * FROM users WHERE email LIKE 'setup-%@device.local'");
+    assert.ok(setup, 'the setup account should have arrived, so references resolve');
+    assert.equal(setup.active, 0, 'it must not be a sign-in anybody can use');
+
+    const tabletLogin = await fetch(`${base}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Clinic-Request': '1' },
+      body: JSON.stringify({ email: setup.email, password: 'tablet12345' }),
+    });
+    assert.notEqual(tabletLogin.status, 200, 'the dead account let somebody in');
+  });
+
+  test('a reference to somebody who never arrives loses the name, not the record', () => {
+    // Belt and braces for the case above: whatever the reason a reference
+    // cannot be resolved, the money and the treatment still have to land.
+    setDriver(devices.get('server'));
+    const patient = q.get("SELECT id, uuid FROM patients WHERE last_name = 'صعب'");
+    const invoice = q.get("SELECT uuid FROM invoices WHERE number LIKE 'INV-T-%'");
+
+    const outcome = applyChanges([{
+      table_name: 'payments',
+      row_uuid: 'aaaaaaaabbbbccccddddeeeeeeeeeeee',
+      op: 'upsert',
+      changed_at: new Date().toISOString(),
+      payload: {
+        patient_id__uuid: patient.uuid,
+        invoice_id__uuid: invoice.uuid,
+        // Nobody, on any device, has ever had this uuid.
+        created_by__uuid: 'ffffffffffffffffffffffffffffffff',
+        amount_cents: 2500, method: 'cash', direction: 'in',
+        paid_at: new Date().toISOString(), created_at: new Date().toISOString(),
+      },
+    }]);
+
+    assert.equal(outcome.applied, 1, 'the payment should have been kept');
+    assert.deepEqual(outcome.deferred, [], 'nothing should still be waiting');
+    const landed = q.get(
+      "SELECT * FROM payments WHERE uuid = 'aaaaaaaabbbbccccddddeeeeeeeeeeee'");
+    assert.ok(landed, 'the payment is not there');
+    assert.equal(landed.amount_cents, 2500);
+    assert.equal(landed.patient_id, patient.id, 'the references that could resolve did');
+    assert.equal(landed.created_by, null, 'the one that could not was emptied');
+
+    // And it says so, rather than quietly changing the record.
+    const noted = q.get(
+      "SELECT * FROM sync_issues WHERE kind = 'incomplete' AND row_uuid = ?",
+      'aaaaaaaabbbbccccddddeeeeeeeeeeee');
+    assert.ok(noted, 'the dropped reference should be reported');
+    assert.match(noted.reason, /created by/);
+  });
+
+  test('the tablet keeps its own records too', () => {
+    setDriver(devices.get('tablet'));
+    for (const [table, count] of Object.entries(counts)) {
+      assert.ok(q.get(`SELECT COUNT(*) AS n FROM ${table}`).n >= count,
+        `${table} lost rows on the tablet itself`);
+    }
+  });
+});
+
