@@ -780,8 +780,10 @@ appointments as CSV from the Reports screen at any time.
 
 **On a phone or tablet** running its own copy, the same two things are buttons
 under **Settings**: "↓ Save a backup file" and "↑ Restore a backup file".
-Send the saved file off the device — a backup sitting in the phone's Downloads
-folder goes when the phone does.
+In the Android app the file goes to the phone's **Downloads** folder and the
+share sheet opens straight afterwards, so it can go to WhatsApp, email or
+Drive in one more tap. Send it somewhere — a backup sitting in the phone's
+Downloads folder goes when the phone does.
 
 **Put the backups somewhere other than the clinic PC.** A stolen or dead computer
 takes the database with it.
@@ -872,6 +874,7 @@ public/
       documents.js    prescriptions and the printable patient record
 android/              the Android app (no Gradle, no AndroidX)
   build.sh            aapt2 -> javac -> d8 -> zipalign -> apksigner
+  test.sh             the parts worth testing, on a plain JVM
   dist/               the signed APK
 windows/              double-click files for a Windows PC
   Start Smile Clinic.cmd, Run at startup.cmd, Stop running at startup.cmd
@@ -895,7 +898,8 @@ tests/
   sync.test.js        two real databases, edited apart, made to agree
   api.test.js         end-to-end tests over real HTTP
   browser-*.mjs       Playwright: the app in a real browser, across origins,
-                      and a backup saved on a phone and put back again
+                      a backup saved on a phone and put back again, and two
+                      copies of the app contending for one database
 ```
 
 The frontend is vanilla ES modules — **no framework, no bundler, no build step**.

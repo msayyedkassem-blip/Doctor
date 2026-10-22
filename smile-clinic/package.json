@@ -1,6 +1,6 @@
 {
   "name": "smile-clinic",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "Free, self-hosted dental clinic management: patients, odontogram, appointments, invoicing, payments and expenses. Zero dependencies.",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",

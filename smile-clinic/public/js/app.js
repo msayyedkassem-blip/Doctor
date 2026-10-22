@@ -74,6 +74,13 @@ async function boot() {
       root.append(el('div', { class: 'loading' }, [
         el('p', { text: t('The app could not reach the server.') }),
         el('p', { class: 'small faint', text: err.message }),
+        // Most of what lands here clears on a second go — a database still
+        // held by the last copy of the app, a clinic computer still starting
+        // up. Staring at the message is not a step anybody can take.
+        el('button', {
+          class: 'btn btn-primary mt', type: 'button', text: t('Try again'),
+          onClick: () => window.location.reload(),
+        }),
       ]));
     }
   }

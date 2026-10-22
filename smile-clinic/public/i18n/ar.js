@@ -383,6 +383,7 @@ export const AR = {
   '{n} KB': '{n} كيلوبايت',
   '↓ Save a backup file': '↓ حفظ نسخة احتياطية',
   'Backup saved': 'تم حفظ النسخة الاحتياطية',
+  'Try again': 'حاول مرة أخرى',
   '↑ Restore a backup file': '↑ استعادة نسخة احتياطية',
   'Restore this backup?': 'استعادة هذه النسخة الاحتياطية؟',
   'Everything on this device is replaced by "{name}". Anything recorded here since that file was saved is lost, and you will be signed out.':

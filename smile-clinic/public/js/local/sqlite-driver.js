@@ -16,14 +16,51 @@ let db = null;
 let pool = null;
 let dbFile = '/clinic.db';
 
+/**
+ * The storage this database lives in can only be held by one copy of the app
+ * at a time, and the previous holder does not always let go the instant it is
+ * closed — an app updated over itself, a tab left open, a phone that killed
+ * the app in the background and reopened it. The browser reports that as
+ * "Access Handles cannot be created...", which tells a dentist nothing.
+ *
+ * Almost every case clears itself within a couple of seconds, so wait for it
+ * rather than greeting them with a dead end. Only once waiting has plainly
+ * failed is anything said, and what is said is what to do about it.
+ */
+const LOCK_WAIT_MS = [200, 400, 800, 1200, 1600, 2000];
+
+function isLockedOut(err) {
+  return /Access Handle|NoModificationAllowed|another open/i.test(
+    `${err?.name || ''} ${err?.message || ''}`);
+}
+
+async function openPool(name, file) {
+  let last;
+  for (let attempt = 0; attempt <= LOCK_WAIT_MS.length; attempt += 1) {
+    try {
+      pool = await sqlite3.installOpfsSAHPoolVfs({ name });
+      return new pool.OpfsSAHPoolDb(file);
+    } catch (err) {
+      last = err;
+      if (!isLockedOut(err) || attempt === LOCK_WAIT_MS.length) break;
+      await new Promise((resolve) => setTimeout(resolve, LOCK_WAIT_MS[attempt]));
+    }
+  }
+  if (isLockedOut(last)) {
+    throw new Error('Another copy of this app is still holding the records. '
+      + 'Close the app completely — swipe it away in the list of open apps — '
+      + 'and open it again. Nothing has been lost.');
+  }
+  throw last;
+}
+
 export async function installBrowserDriver({ name = 'clinic', file = '/clinic.db' } = {}) {
   sqlite3 = await initSqlite();
 
   // opfs-sahpool persists to real storage without needing cross-origin
   // isolation, which a plain http:// page on a clinic network cannot have.
-  pool = await sqlite3.installOpfsSAHPoolVfs({ name });
   dbFile = file;
-  db = new pool.OpfsSAHPoolDb(file);
+  db = await openPool(name, file);
 
   db.exec('PRAGMA foreign_keys = ON');
 

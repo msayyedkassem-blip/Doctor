@@ -28,6 +28,15 @@ function ensureWorker() {
     pending.delete(id);
     waiting.resolve({ ok, result });
   };
+  // Hand the storage back as the page goes away. The browser is supposed to
+  // do this for us, but on a phone a reload can start the next copy before the
+  // last one has let go, and then neither can open the records.
+  if (typeof addEventListener === 'function') {
+    addEventListener('pagehide', () => {
+      try { worker?.terminate(); } catch { /* already gone */ }
+      worker = null;
+    }, { once: true });
+  }
   worker.onerror = (event) => {
     // A worker that failed to start can never answer; fail everything waiting
     // rather than leave the screen spinning forever.
