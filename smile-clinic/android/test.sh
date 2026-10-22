@@ -5,7 +5,11 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUT="$HERE/build/test"
 rm -rf "$OUT" && mkdir -p "$OUT"
-javac -nowarn -d "$OUT" \
+javac -nowarn -encoding UTF-8 -d "$OUT" \
   "$HERE/java/com/smileclinic/app/ServerAddress.java" \
-  "$HERE/test/ServerAddressTest.java" 2>&1 | grep -v "JAVA_TOOL_OPTIONS" || true
-java -cp "$OUT" ServerAddressTest 2>&1 | grep -v "JAVA_TOOL_OPTIONS"
+  "$HERE/java/com/smileclinic/app/SavedFile.java" \
+  "$HERE/java/com/smileclinic/app/SavedFileTestAccess.java" \
+  "$HERE/test/ServerAddressTest.java" \
+  "$HERE/test/SavedFileTest.java" 2>&1 | grep -v "JAVA_TOOL_OPTIONS" || true
+java -Dfile.encoding=UTF-8 -cp "$OUT" ServerAddressTest 2>&1 | grep -v "JAVA_TOOL_OPTIONS"
+java -Dfile.encoding=UTF-8 -cp "$OUT" SavedFileTest 2>&1 | grep -v "JAVA_TOOL_OPTIONS"

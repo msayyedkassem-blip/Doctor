@@ -6,9 +6,11 @@ import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.ContentValues;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
+import android.provider.MediaStore;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -19,8 +21,10 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.util.Base64;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceResponse;
 import android.webkit.URLUtil;
 import android.webkit.WebResourceRequest;
@@ -35,7 +39,10 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
@@ -374,11 +381,22 @@ public class MainActivity extends Activity {
             }
         });
 
-        // CSV exports are ordinary downloads; without this they silently do nothing.
+        // The backup file and the CSV exports are made in the browser, as a blob
+        // the page hands to a download link. DownloadManager cannot fetch one —
+        // there is nothing on the network to fetch — so it threw, and the only
+        // sign of it was "Could not download that file". That is the app's own
+        // records failing to leave the device, which is the one download that
+        // really matters. Those are read in the page and written here instead.
+        web.addJavascriptInterface(new FileBridge(), "SmileClinicFiles");
+
         web.setDownloadListener(new DownloadListener() {
             @Override
             public void onDownloadStart(String url, String userAgent, String contentDisposition,
                                         String mimeType, long contentLength) {
+                if (url != null && (url.startsWith("blob:") || url.startsWith("data:"))) {
+                    saveFromPage(url, URLUtil.guessFileName(url, contentDisposition, mimeType));
+                    return;
+                }
                 try {
                     DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
                     String name = URLUtil.guessFileName(url, contentDisposition, mimeType);
@@ -402,6 +420,130 @@ public class MainActivity extends Activity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(container);
         web.loadUrl(server);
+    }
+
+    /**
+     * Reads a blob the page made and hands the bytes back to Java.
+     *
+     * Everything stays inside the WebView until the last step, so a backup of
+     * the clinic's records never goes near the network to come back again.
+     */
+    private void saveFromPage(String url, String suggestedName) {
+        String name = suggestedName == null ? "download" : suggestedName;
+        String js =
+            "(function(){var x=new XMLHttpRequest();x.open('GET'," + SavedFile.quote(url) + ");"
+            + "x.responseType='blob';"
+            + "x.onload=function(){var r=new FileReader();"
+            + "r.onloadend=function(){SmileClinicFiles.save(String(r.result),"
+            + SavedFile.quote(name) + ");};r.onerror=function(){SmileClinicFiles.failed();};"
+            + "r.readAsDataURL(x.response);};"
+            + "x.onerror=function(){SmileClinicFiles.failed();};x.send();})()";
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            web.evaluateJavascript(js, null);
+        } else {
+            web.loadUrl("javascript:" + js);
+        }
+    }
+
+    /**
+     * What the page calls once it has the bytes.
+     *
+     * The file goes to the phone's Downloads folder, where every other app can
+     * see it, and then the share sheet opens — because a backup that never
+     * leaves the device is not a backup, and the app has just finished telling
+     * them so.
+     */
+    private class FileBridge {
+        @JavascriptInterface
+        public void save(final String dataUrl, final String suggestedName) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        int comma = dataUrl.indexOf(',');
+                        if (comma < 0) throw new IOException("not a data url");
+                        byte[] bytes = Base64.decode(
+                                dataUrl.substring(comma + 1), Base64.DEFAULT);
+                        Uri saved = writeToDownloads(SavedFile.safeName(suggestedName), bytes);
+                        Toast.makeText(MainActivity.this,
+                                "Saved to Downloads: " + SavedFile.safeName(suggestedName),
+                                Toast.LENGTH_LONG).show();
+                        if (saved != null) offerToSend(saved, SavedFile.safeName(suggestedName));
+                    } catch (Exception e) {
+                        Toast.makeText(MainActivity.this,
+                                "Could not save that file: " + e.getMessage(),
+                                Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void failed() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(MainActivity.this, "Could not read that file",
+                            Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+    }
+
+    /**
+     * Writes into the phone's own Downloads folder.
+     *
+     * From Android 10 that is MediaStore, which needs no permission and gives
+     * back a uri other apps can read — which is what makes sending it on
+     * WhatsApp possible. Below that, the app's own folder on shared storage:
+     * also no permission, and still somewhere a file manager can reach.
+     */
+    private Uri writeToDownloads(String name, byte[] bytes) throws IOException {
+        if (Build.VERSION.SDK_INT >= 29) {
+            ContentValues values = new ContentValues();
+            values.put(MediaStore.Downloads.DISPLAY_NAME, name);
+            values.put(MediaStore.Downloads.MIME_TYPE, SavedFile.mimeFor(name));
+            values.put(MediaStore.Downloads.IS_PENDING, 1);
+            Uri item = getContentResolver().insert(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+            if (item == null) throw new IOException("Downloads folder refused the file");
+            OutputStream out = getContentResolver().openOutputStream(item);
+            try {
+                out.write(bytes);
+            } finally {
+                if (out != null) out.close();
+            }
+            values.clear();
+            values.put(MediaStore.Downloads.IS_PENDING, 0);
+            getContentResolver().update(item, values, null, null);
+            return item;
+        }
+
+        File dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (dir == null) throw new IOException("no storage available");
+        if (!dir.exists() && !dir.mkdirs()) throw new IOException("could not make the folder");
+        File file = new File(dir, name);
+        FileOutputStream out = new FileOutputStream(file);
+        try {
+            out.write(bytes);
+        } finally {
+            out.close();
+        }
+        return null; // No shareable uri without a provider; the file is still there.
+    }
+
+    /** Offers the file to WhatsApp, email, Drive — whatever is installed. */
+    private void offerToSend(Uri file, String name) {
+        try {
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType(SavedFile.mimeFor(name));
+            send.putExtra(Intent.EXTRA_STREAM, file);
+            send.putExtra(Intent.EXTRA_SUBJECT, name);
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(send, "Send this backup somewhere safe"));
+        } catch (Exception e) {
+            // It is already in Downloads; sending it on is a convenience.
+        }
     }
 
     /**
