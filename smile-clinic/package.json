@@ -1,6 +1,6 @@
 {
   "name": "smile-clinic",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Free, self-hosted dental clinic management: patients, odontogram, appointments, invoicing, payments and expenses. Zero dependencies.",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE",
@@ -15,6 +15,7 @@
     "seed": "node --no-warnings server/seed.js",
     "reset": "node --no-warnings server/seed.js --reset",
     "backup": "node --no-warnings scripts/backup.js",
+    "restore": "node --no-warnings scripts/restore.js",
     "address": "node --no-warnings scripts/address.js",
     "build:local": "node --no-warnings scripts/build-local.js",
     "i18n:check": "node --no-warnings scripts/i18n-keys.js",

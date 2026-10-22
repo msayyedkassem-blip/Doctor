@@ -114,3 +114,14 @@ export const localSyncRegister = (request) => send('sync-register', { request })
 
 /** The whole database as bytes, for a backup the clinic can keep. */
 export const exportLocalDatabase = () => send('export', {}).then((r) => r.result.bytes);
+
+/**
+ * Puts a backup file back. Replaces everything on this device, so the caller
+ * asks first — and the sign-in goes with it, because the sessions in the
+ * restored database are not the ones this browser is holding.
+ */
+export const importLocalDatabase = (bytes) => send('import', { bytes }).then((r) => {
+  if (!r.ok) throw new Error(errorFrom(r));
+  token.clear();
+  return r.result;
+});

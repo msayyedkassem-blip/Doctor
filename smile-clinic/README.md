@@ -285,6 +285,7 @@ copies to gather up, it simply sets up the one you just extracted.
 npm run dev      # restarts automatically when you edit a file
 npm test         # runs the full test suite
 npm run backup   # safe copy of the database, even while the app is running
+npm run restore  # put a backup back, or adopt a phone's records as the clinic
 npm run address  # the address to open on a phone
 npm run find     # find every copy of the app on this computer
 npm run setup    # put the app in one place and add a Desktop icon
@@ -571,6 +572,39 @@ reaches the clinic anyway, the clinic keeps its number and the arriving record
 is moved to a free one; Settings says how many were moved, so anything already
 written on paper can be checked.
 
+### Started on a phone, setting the computer up later
+
+This is the common way round, and it needs doing in the right order or the
+phone's records end up as the ones that get overwritten.
+
+The phone's records are the real clinic. So make them the clinic:
+
+1. **On the phone:** Settings → "↓ Save a backup file". Send the file to
+   yourself — WhatsApp, email, a cable, anything — so it is on the computer.
+2. **On the computer**, with the app extracted but *not yet started*:
+
+   ```bash
+   npm run restore -- "C:\Users\you\Downloads\clinic-backup-2026-10-22.db"
+   ```
+
+   It checks the file is really a backup, keeps anything already there beside
+   it with a timestamp, and queues every record so the first device to join
+   receives the whole clinic rather than an empty one.
+3. **Start the clinic** (`npm start`, or **Start Smile Clinic** on Windows) and
+   sign in with the account the phone used.
+4. **Join the phone to it**, as above. Nothing is lost either way round now,
+   but this order means the computer never hands the phone an empty clinic.
+
+If instead the phone joins a computer that was set up fresh, that works too —
+everything the phone recorded alone travels up to the clinic. What it cannot
+do is undo itself, so it is worth doing in the order above.
+
+**`npm run restore` is also how a backup goes back after a disaster.** It
+refuses to run over a database that already has patients unless you add
+`--force`, and even then it keeps what was there as
+`clinic.db.replaced-<date>`. On a phone the same thing is a button:
+Settings → "↑ Restore a backup file".
+
 ### Which device should be the clinic
 
 One device has to be the one the others join. It is whichever one is **switched
@@ -727,10 +761,27 @@ prunes older ones. Put it on a schedule:
 0 21 * * *  cd /opt/smile-clinic && /usr/bin/node scripts/backup.js /mnt/backups
 ```
 
-To restore: stop the app, `gunzip` the backup, and put it back as
-`data/clinic.db`. With the app stopped, copying the whole `data/` folder is also a
-complete backup. You can also export patients, invoices,
-payments, expenses and appointments as CSV from the Reports screen at any time.
+To restore, stop the app and hand the file to `npm run restore` — a `.db` or a
+`.db.gz`, from this computer or from a phone:
+
+```bash
+npm run restore -- backups/clinic-2026-10-22T21-00-00.db.gz
+```
+
+It checks the file really is a Smile Clinic database before it moves anything,
+refuses to run over a database that already has patients unless you add
+`--force`, and keeps whatever was there as `clinic.db.replaced-<date>`. It also
+brings an older backup's schema up to date, and queues every record so devices
+joining afterwards receive the whole clinic.
+
+With the app stopped, copying the whole `data/` folder is also a complete
+backup. You can also export patients, invoices, payments, expenses and
+appointments as CSV from the Reports screen at any time.
+
+**On a phone or tablet** running its own copy, the same two things are buttons
+under **Settings**: "↓ Save a backup file" and "↑ Restore a backup file".
+Send the saved file off the device — a backup sitting in the phone's Downloads
+folder goes when the phone does.
 
 **Put the backups somewhere other than the clinic PC.** A stolen or dead computer
 takes the database with it.
@@ -826,6 +877,7 @@ windows/              double-click files for a Windows PC
   Start Smile Clinic.cmd, Run at startup.cmd, Stop running at startup.cmd
 scripts/
   backup.js           consistent online backup, with rotation
+  restore.js          puts a backup back, or makes a phone's records the clinic
   address.js          prints the address phones should use
   build-local.js      copies the server into public/ for the in-phone copy
   find-installs.js    finds every copy and says which holds real records
@@ -842,7 +894,8 @@ tests/
   licence.test.js     signing, expiry, device limits, tampering
   sync.test.js        two real databases, edited apart, made to agree
   api.test.js         end-to-end tests over real HTTP
-  browser-*.mjs       Playwright: the app in a real browser, and across origins
+  browser-*.mjs       Playwright: the app in a real browser, across origins,
+                      and a backup saved on a phone and put back again
 ```
 
 The frontend is vanilla ES modules — **no framework, no bundler, no build step**.

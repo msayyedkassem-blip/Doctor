@@ -31,7 +31,9 @@ import registerMedicines from '../../shared/routes/medicines.js';
 import registerAssistant from '../../shared/routes/assistant.js';
 
 import { runSync, registerDevice, syncSummary } from '../../shared/lib/sync-client.js';
-import { installBrowserDriver, exportDatabase, databaseSize } from './sqlite-driver.js';
+import {
+  installBrowserDriver, exportDatabase, importDatabase, databaseSize,
+} from './sqlite-driver.js';
 import { installBrowserCrypto } from './crypto-browser.js';
 import { LICENCE_PUBLIC_KEY } from './licence-key.js';
 import { setLicencePublicKey } from '../../shared/lib/licence.js';
@@ -163,6 +165,11 @@ self.onmessage = async (event) => {
     if (type === 'export') {
       const bytes = exportDatabase();
       self.postMessage({ id, ok: true, result: { bytes, size: bytes.length } }, [bytes.buffer]);
+      return;
+    }
+    if (type === 'import') {
+      const result = await importDatabase(event.data.bytes);
+      self.postMessage({ id, ok: true, result });
       return;
     }
     if (type === 'sync') {
