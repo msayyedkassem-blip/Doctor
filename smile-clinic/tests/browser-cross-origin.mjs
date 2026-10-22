@@ -82,8 +82,10 @@ for (const [name, value] of [['first_name', 'مريم'], ['last_name', 'الها
   if ((await field.inputValue()) !== value) throw new Error(`could not fill ${name}`);
 }
 await phone.click('.modal button:has-text("Create patient")');
+let madePatient = false;
 try {
   await phone.waitForSelector('.modal', { state: 'detached', timeout: 15000 });
+  madePatient = true;
   note(true, 'phone: a patient created before joining');
 } catch {
   await phone.screenshot({ path: `${OUT}/x-modal-stuck.png`, fullPage: true });
@@ -91,6 +93,44 @@ try {
   note(false, 'phone: patient create stuck -> ' + t.replace(/\s+/g, ' ').slice(0, 300)
     + ' | console: ' + consoleErrors.slice(-3).join(' || '));
   await phone.keyboard.press('Escape');
+}
+
+// Something with the device's own sign-in written on it. A patient carries no
+// reference to anybody; an appointment and an invoice both do, and that is what
+// used to be left behind when joining stood that account down.
+if (madePatient) {
+  try {
+    await phoneNav('calendar');
+    await phone.waitForSelector('.topbar-actions .btn-primary', { timeout: 15000 });
+    await phone.click('.topbar-actions .btn-primary');
+    await phone.waitForSelector('.modal input[name="patient_search"]');
+    await phone.fill('.modal input[name="patient_search"]', 'مريم');
+    await phone.waitForTimeout(800);
+    await phone.click('.modal .nav-item');
+    await phone.click('.modal-foot .btn-primary');
+    await phone.waitForSelector('.modal', { state: 'detached', timeout: 15000 });
+    note(true, 'phone: an appointment booked before joining');
+  } catch (e) {
+    note(false, 'phone: could not book before joining -> ' + e.message.split('\n')[0]);
+  }
+
+  try {
+    await phoneNav('billing');
+    await phone.waitForSelector('.topbar-actions .btn-primary', { timeout: 15000 });
+    await phone.click('.topbar-actions .btn-primary');
+    await phone.waitForSelector('.invoice-lines', { timeout: 15000 });
+    await phone.fill('.modal input[name="patient_search"]', 'مريم');
+    await phone.waitForTimeout(800);
+    await phone.click('.modal .nav-item');
+    const row = phone.locator('.invoice-lines tbody tr').first();
+    await row.locator('input').first().fill('Consultation on the phone');
+    await row.locator('input[type="number"]').nth(2).fill('75');
+    await phone.click('.modal-foot .btn-primary');
+    await phone.waitForSelector('.modal', { state: 'detached', timeout: 15000 });
+    note(true, 'phone: an invoice raised before joining');
+  } catch (e) {
+    note(false, 'phone: could not invoice before joining -> ' + e.message.split('\n')[0]);
+  }
 }
 
 // ---- 3. the join, across origins -----------------------------------------
@@ -184,6 +224,20 @@ if (toastOrError.ok) {
   const clinicText = await clinic.textContent('tbody');
   note(clinicText.includes('مريم'), 'clinic: the phone’s patient arrived here too');
   await clinic.screenshot({ path: `${OUT}/05-clinic-has-phone-patient.png`, fullPage: true });
+
+  // The whole file, not just the person: these are the records that name the
+  // phone's own setup account, and they used to be dropped on arrival.
+  await clinic.click('[data-nav="billing"]');
+  await clinic.waitForSelector('tbody tr', { timeout: 20000 }).catch(() => {});
+  const billing = await clinic.textContent('tbody').catch(() => '');
+  note(/Consultation on the phone|75/.test(billing),
+    'clinic: the invoice raised on the phone arrived too');
+  await clinic.screenshot({ path: `${OUT}/07-clinic-has-phone-invoice.png`, fullPage: true });
+
+  await clinic.click('[data-nav="calendar"]');
+  await clinic.waitForSelector('.cal-grid', { timeout: 20000 }).catch(() => {});
+  const booked = await clinic.$$eval('.cal-event', (e) => e.length).catch(() => 0);
+  note(booked > 0, `clinic: the appointment booked on the phone arrived (${booked} shown)`);
 }
 
 const cors = consoleErrors.filter((t) => /CORS|Access-Control|Mixed Content|Failed to fetch/i.test(t));
