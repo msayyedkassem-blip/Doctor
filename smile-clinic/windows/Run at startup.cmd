@@ -1,33 +1,26 @@
 @echo off
 rem  Makes the clinic start by itself every time this computer is switched on.
 rem
-rem  It puts a shortcut in the Startup folder, which is the plain Windows way
-rem  of doing this - nothing is installed, nothing runs as a service, and
+rem  It puts one small file in the Startup folder, which is the plain Windows
+rem  way of doing this: nothing is installed, nothing runs as a service, and
 rem  "Stop running at startup" undoes it completely.
 
 setlocal
-set "APP=%~dp0Start Smile Clinic.cmd"
-set "LINK=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Smile Clinic.lnk"
+cd /d "%~dp0.."
 
-powershell -NoProfile -Command ^
-  "$s = (New-Object -ComObject WScript.Shell).CreateShortcut('%LINK%');" ^
-  "$s.TargetPath = '%APP%';" ^
-  "$s.WorkingDirectory = (Split-Path '%APP%');" ^
-  "$s.WindowStyle = 7;" ^
-  "$s.Description = 'Smile Clinic';" ^
-  "$s.Save()"
-
+where node >nul 2>&1
 if errorlevel 1 (
   echo.
-  echo   Could not set it to start automatically.
-  echo   The "Start Smile Clinic" file still works - double-click that.
+  echo   Node.js is not installed on this computer.
+  echo.
+  echo   Get it from https://nodejs.org - press the big green LTS button,
+  echo   click through the installer leaving everything as it is, then
+  echo   double-click this file again.
   echo.
   pause
   exit /b 1
 )
 
-echo.
-echo   Done. The clinic will start by itself from now on.
-echo   To undo this, double-click "Stop running at startup".
-echo.
+node --no-warnings scripts\windows.js autostart on
 pause
+exit /b 0

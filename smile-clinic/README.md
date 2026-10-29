@@ -199,30 +199,38 @@ Change it under the `⋯` menu next to your name in the sidebar.
 
 ### On Windows
 
-Windows has no terminal habit to fall back on, so the zip carries three files
-you double-click instead. Install [Node.js](https://nodejs.org) first — the LTS
-button, then click through the installer — and unzip the app somewhere that is
-not inside a zip file: `Documents\Smile Clinic` is a good place, the Downloads
-folder is not, because Windows runs files there from a temporary copy.
+Windows has no terminal habit to fall back on, so the zip carries files you
+double-click instead.
+
+**Before anything else:** install [Node.js](https://nodejs.org) — press the
+big green **LTS** button and click through the installer leaving everything as
+it is. Then unzip the app somewhere that is **not** the Downloads folder:
+`Documents\Smile Clinic` is a good place. Windows runs files in Downloads from
+a temporary copy, and the clinic would lose its records every time.
 
 Then, in the `windows` folder:
 
 | Double-click | What it does |
 | --- | --- |
 | **Start Smile Clinic** | Starts the clinic and opens it in the browser. If it is already running it just opens it. |
-| **Run at startup** | Starts the clinic by itself every time the computer is switched on. |
-| **Stop running at startup** | Undoes the above. The app itself is untouched. |
+| **Run at startup** | Starts the clinic by itself whenever the computer is switched on. |
+| **Stop running at startup** | Undoes the above. The app and the records are untouched. |
+| **Back up the records** | Writes a dated copy into `backups`. Safe to run while people are using it. |
+| **Restore from a backup** | **Drag a backup file onto this one** and let go. Puts it back, or adopts a phone's records as the clinic. |
 
-If the window opens and closes with nothing in it, Node.js is not installed —
-"Start Smile Clinic" says so and waits, as long as you are running it from the
-`windows` folder rather than from inside the zip.
+**The first time you start it, it prints an administrator password and keeps
+the window open.** Write it down — it is shown once. (It is also in
+`logs\clinic.log`.) Change it once you have signed in.
 
-The address other devices should type is printed when the clinic starts, and is
-also under **Settings → Devices**. On Windows this matters more than on a Mac:
-a PC with WSL, Docker, VirtualBox or VMware carries several extra network
-adapters, all of which hand out plausible-looking `192.168.x` addresses that no
-phone can reach. The app does not offer those — it shows only the real Wi-Fi or
-Ethernet address.
+There is no console window to keep open: the clinic runs in the background, and
+closing the browser does not stop it. **Stop running at startup** plus a restart
+is how you stop it entirely.
+
+The address other devices should type is shown under **Settings → Clinic**, and
+on Windows that matters more than on a Mac: a PC with WSL, Docker, VirtualBox
+or VMware carries several extra network adapters, all handing out plausible
+`192.168.x` addresses that no phone can reach. The app does not offer those —
+it shows only the real Wi-Fi or Ethernet address.
 
 ### Try it with demo data first
 
@@ -310,9 +318,9 @@ That registers the app with macOS's own service manager. From then on it:
 
 To stop it starting automatically: `./scripts/install-mac.sh remove`.
 
-On Windows, double-click **Run at startup** in the `windows` folder — it puts a
-shortcut in the Startup folder and nothing else, which is why **Stop running at
-startup** can undo it completely.
+On Windows, double-click **Run at startup** in the `windows` folder. It puts one
+small, readable `.cmd` file in the Startup folder and nothing else — no service,
+no installer — which is why **Stop running at startup** undoes it completely.
 
 Logs go to `logs/clinic.log` and `logs/clinic.error.log` if you ever need to see
 what happened. On Linux, use the systemd unit under
@@ -876,8 +884,9 @@ android/              the Android app (no Gradle, no AndroidX)
   build.sh            aapt2 -> javac -> d8 -> zipalign -> apksigner
   test.sh             the parts worth testing, on a plain JVM
   dist/               the signed APK
-windows/              double-click files for a Windows PC
-  Start Smile Clinic.cmd, Run at startup.cmd, Stop running at startup.cmd
+windows/              double-click files for a Windows PC — each one a few
+                      lines calling scripts/windows.js, because batch cannot
+                      be tested and this way the logic can be
 scripts/
   backup.js           consistent online backup, with rotation
   restore.js          puts a backup back, or makes a phone's records the clinic
@@ -885,6 +894,7 @@ scripts/
   build-local.js      copies the server into public/ for the in-phone copy
   find-installs.js    finds every copy and says which holds real records
   running.js          is the clinic up, and stopping it — on any platform
+  windows.js          what the Windows double-click files actually do
   tidy-up.js          consolidates them into one, backing up first
   install-mac.sh      auto-start on macOS via launchd
   licence.js          minting and checking licence keys
@@ -893,6 +903,7 @@ tests/
   tooth.test.js       the tooth drawings, including the root-canal marking
   messaging.test.js   template rendering and phone normalisation
   network.test.js     address detection across platforms and edge cases
+  windows.test.js     starting with Windows, without a Windows machine
   assistant.test.js   the front desk assistant, with the model stubbed out
   licence.test.js     signing, expiry, device limits, tampering
   sync.test.js        two real databases, edited apart, made to agree

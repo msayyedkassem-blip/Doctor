@@ -1,17 +1,9 @@
 @echo off
-rem  Undoes "Run at startup". The app itself is left alone.
+rem  Undoes "Run at startup". The app and the records are left alone.
 
 setlocal
-set "LINK=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\Smile Clinic.lnk"
+cd /d "%~dp0.."
 
-if exist "%LINK%" (
-  del "%LINK%"
-  echo.
-  echo   The clinic will no longer start by itself.
-  echo   You can still open it with "Start Smile Clinic".
-) else (
-  echo.
-  echo   It was not set to start by itself.
-)
-echo.
+node --no-warnings scripts\windows.js autostart off
 pause
+exit /b 0

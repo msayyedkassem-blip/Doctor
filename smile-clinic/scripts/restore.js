@@ -17,6 +17,7 @@
 import { DatabaseSync, backup } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
+import readline from 'node:readline/promises';
 import zlib from 'node:zlib';
 import { dbPath, config } from '../server/config.js';
 import { readMigrations } from '../server/db-node.js';
@@ -89,12 +90,29 @@ if (fs.existsSync(target)) {
   } catch { /* unreadable, which is a reason to restore */ }
 
   if (existing > 0 && !force) {
-    fs.rmSync(work, { force: true });
     say();
-    die(`There are already ${existing} patient(s) here.\n`
-      + '  Restoring would set them aside and put the backup in their place.\n'
-      + '  If that is what you want, run it again with --force:\n'
-      + `      npm run restore -- "${source}" --force`);
+    say(`  Careful: there are already ${existing} patient(s) on this computer.`);
+    say('  Restoring sets them aside and puts the backup in their place.');
+    say();
+
+    // Dropped onto the Windows file, or run from a terminal, somebody is
+    // there to answer. Run from a script, nobody is, and the safe answer to
+    // a question nobody heard is no.
+    if (!process.stdin.isTTY) {
+      fs.rmSync(work, { force: true });
+      die('Nothing was changed. If replacing them is what you want:\n'
+        + `      npm run restore -- "${source}" --force`);
+    }
+
+    const ask = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const answer = (await ask.question('  Replace them? Type yes to go ahead: ')).trim();
+    ask.close();
+    if (answer.toLowerCase() !== 'yes') {
+      fs.rmSync(work, { force: true });
+      say();
+      die('Nothing was changed.');
+    }
+    say();
   }
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
